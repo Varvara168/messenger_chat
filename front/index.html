@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend</title>
+</head>
+<body>
+    <h1>Проверка сервера</h1>
+    <button id="check">Проверить /ping</button>
+    <p id="result"></p>
+
+    <script>
+        const btn = document.getElementById('check');
+        const res = document.getElementById('result');
+
+        btn.onclick = async () => {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/ping');
+                const data = await response.json();
+                res.innerText = data.message; // покажет "pong"
+            } catch (e) {
+                res.innerText = "Ошибка подключения";
+            }
+        }
+    </script>
+</body>
+</html>
