@@ -62,8 +62,8 @@ def login(creds: UserLogin, response: Response, db: Session = Depends(get_db)):
     return {"access_token": token}
 
 
-@router.get(path="/main_window", dependencies=[Depends(security.access_token_required)])
-def main_window():
+@router.get(path="/me", dependencies=[Depends(security.access_token_required)])
+def me():
     if True:
         return {"message": "Welcome to the main window!"}
     else:

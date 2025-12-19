@@ -15,19 +15,6 @@ def get_db():
 class Base(DeclarativeBase): #родительский класс
     pass
 
-
-
-# class Message(Base):
-#     __tablename__ = "messages"
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     chat_id: Mapped[int]
-#     user_id: Mapped[int]
-#     text: Mapped[str]
-#     photo_url: Mapped[str]
-#     attachments: Mapped[str]
-#     timestamp: Mapped[str]
-#     status: Mapped[str]
-
 # class Channel(Base):
 #     __tablename__ = "channels"
 #     id: Mapped[int] = mapped_column(primary_key=True)

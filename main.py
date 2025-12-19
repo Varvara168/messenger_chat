@@ -25,3 +25,4 @@ app.include_router(messages_router)
 
 # venv\Scripts\activate    
 # py -m uvicorn main:app --reload
+
