@@ -60,14 +60,12 @@
     let currentUserId = null;
     let currentUserName = null;
 
-    // ======================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =======================
-    async function apiRequest(endpoint, options = {}) {
+    // ======================= СИНХРОННЫЕ ФУНКЦИИ =======================
+    function apiRequest(endpoint, options = {}) {
         const url = `${API_BASE}${endpoint}`;
         const token = localStorage.getItem("ACCESS_TOKEN");
         
-        // ОТЛАДКА
-        console.log(`Making request to: ${endpoint}`);
-        console.log(`Token from localStorage: ${token ? token.substring(0, 20) + "..." : "NO TOKEN"}`);
+        console.log(`Запрос к: ${endpoint}`);
         
         const defaultOptions = {
             headers: {
@@ -77,118 +75,226 @@
             ...options
         };
 
-        // Добавляем токен в заголовок Authorization
+        // Добавляем токен в заголовок
         if (token) {
             defaultOptions.headers['Authorization'] = `Bearer ${token}`;
-            console.log(`Authorization header set: Bearer ${token.substring(0, 20)}...`);
-        } else {
-            console.log("No token available for Authorization header");
+            console.log(`Токен добавлен в заголовок`);
         }
 
-        try {
-            const response = await fetch(url, defaultOptions);
-            
-            console.log(`Response status for ${endpoint}: ${response.status}`);
-            
-            if (response.status === 401) {
-                console.log("Got 401 - token invalid/expired");
-                localStorage.clear();
-                alert("Сессия истекла. Пожалуйста, войдите снова.");
-                window.location.href = "login.html";
-                return null;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return await response.json();
-        } catch (error) {
-            console.error(`Request to ${endpoint} failed:`, error);
-            throw error;
-        }
+        return fetch(url, defaultOptions)
+            .then(response => {
+                console.log(`Ответ от ${endpoint}: ${response.status}`);
+                
+                if (response.status === 401) {
+                    console.log("Ошибка 401 - токен недействителен");
+                    localStorage.clear();
+                    alert("Сессия истекла. Пожалуйста, войдите снова.");
+                    window.location.href = "login.html";
+                    return null;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return response.json();
+            })
+            .catch(error => {
+                console.error(`Ошибка запроса ${endpoint}:`, error);
+                throw error;
+            });
     }
 
     // ======================= ИНИЦИАЛИЗАЦИЯ =======================
-    async function init() {
+    function init() {
         console.log("Инициализация чата...");
         
-        try {
-            // Проверяем авторизацию через /me
-            const userData = await apiRequest('/auth/me');
-            
-            if (!userData) {
-                // Уже редиректнулись на login
-                return;
-            }
-            
-            console.log("Данные пользователя:", userData);
-            
-            currentUserId = userData.user.id;
-            currentUserName = userData.user.short_name || userData.user.first_name || "Пользователь";
-            const userAvatar = currentUserName.charAt(0).toUpperCase();
-            
-            // Обновляем интерфейс
-            document.getElementById('user-name').textContent = currentUserName;
-            document.getElementById('user-avatar').textContent = userAvatar;
-            
-            // Загружаем чаты
-            await loadChats();
-            
-            // Показываем интерфейс
-            loading.style.display = 'none';
-            chatApp.style.display = 'flex';
-            
-            // Настраиваем обработчики
-            setupEventListeners();
-            
-            console.log("Чат инициализирован");
-            
-        } catch (error) {
-            console.error("Ошибка инициализации:", error);
-            alert("Ошибка авторизации. Пожалуйста, войдите снова.");
+        // Проверяем токен
+        const token = localStorage.getItem("ACCESS_TOKEN");
+        if (!token) {
+            alert("Вы не авторизованы. Пожалуйста, войдите.");
             window.location.href = "login.html";
+            return;
         }
+        
+        // Получаем данные пользователя
+        apiRequest('/auth/me')
+            .then(userData => {
+                if (!userData) return;
+                
+                console.log("Данные пользователя:", userData);
+                
+                currentUserId = userData.user.id;
+                currentUserName = userData.user.short_name || userData.user.first_name || "Пользователь";
+                const userAvatar = currentUserName.charAt(0).toUpperCase();
+                
+                // Обновляем интерфейс
+                document.getElementById('user-name').textContent = currentUserName;
+                document.getElementById('user-avatar').textContent = userAvatar;
+                
+                // Загружаем чаты
+                return loadChats();
+            })
+            .then(() => {
+                // Показываем интерфейс
+                loading.style.display = 'none';
+                chatApp.style.display = 'flex';
+                
+                // Настраиваем обработчики
+                setupEventListeners();
+                
+                console.log("Чат инициализирован");
+            })
+            .catch(error => {
+                console.error("Ошибка инициализации:", error);
+                alert("Ошибка авторизации. Пожалуйста, войдите снова.");
+                window.location.href = "login.html";
+            });
     }
 
     // ======================= ЗАГРУЗКА ЧАТОВ =======================
-    async function loadChat(chatId) {
-        try {
-            const chat = chatsData[chatId];
-            if (!chat) return;
-            
-            currentChatId = chatId;
-            
-            // Загружаем сообщения
-            try {
-                // Убедитесь, что передаете правильные параметры
-                const messages = await apiRequest(`/chat/${chat.serverId}/messages?limit=50&offset=0`);
+    function loadChats() {
+        console.log("Загрузка списка чатов...");
+        
+        return apiRequest('/chat/get_chats')
+            .then(chats => {
+                console.log("Получены чаты:", chats);
                 
-                if (messages && Array.isArray(messages)) {
-                    chat.messages = messages.map(m => ({
-                        id: m.id || Date.now(),
-                        text: m.text || "",
-                        time: m.timestamp ? 
-                            new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 
-                            '--:--',
-                        fromMe: m.user_id === currentUserId
-                    }));
+                chatsData = {};
+                
+                if (Array.isArray(chats) && chats.length > 0) {
+                    chats.forEach(chat => {
+                        const chatId = chat.id;
+                        chatsData[chatId] = {
+                            id: chatId,
+                            name: chat.title || `Чат ${chatId}`,
+                            avatar: (chat.title || "Ч").charAt(0).toUpperCase(),
+                            messages: [],
+                            last_message: chat.last_message || "",
+                            last_time: "12:00",
+                            serverId: chatId
+                        };
+                    });
+                    
+                    renderChatList();
+                    
+                    // Автоматически выбираем первый чат
+                    const firstChatId = Object.keys(chatsData)[0];
+                    if (firstChatId) {
+                        setTimeout(() => loadChat(firstChatId), 100);
+                    }
                 } else {
-                    chat.messages = [];
+                    showNoChatsMessage();
                 }
-            } catch (error) {
-                console.error(`Ошибка загрузки сообщений:`, error);
-                chat.messages = [];
-            }
-            
-            renderMessages(chatId);
-            
-        } catch (error) {
-            console.error(`Ошибка загрузки чата:`, error);
-        }
+            })
+            .catch(error => {
+                console.error("Ошибка загрузки чатов:", error);
+                showNoChatsMessage();
+            });
     }
 
-    // ======================= РЕНДЕР СПИСКА ЧАТОВ =======================
+    // ======================= ЗАГРУЗКА ЧАТА =======================
+    function loadChat(chatId) {
+        const chat = chatsData[chatId];
+        if (!chat) return;
+        
+        currentChatId = chatId;
+        document.getElementById('current-avatar').textContent = chat.avatar;
+        document.getElementById('current-chat-name').textContent = chat.name;
+        document.getElementById('inputArea').style.display = 'block';
+        document.getElementById('online-status').textContent = 'загружаем...';
+        
+        console.log(`Загружаем сообщения для чата ID: ${chat.serverId}`);
+        
+        // Делаем запрос к правильному endpoint
+        apiRequest(`/chat/${chat.serverId}/messages?limit=50&offset=0`)
+            .then(response => {
+                console.log("Ответ от сервера:", response);
+                
+                // Проверяем структуру ответа
+                if (response && response.messages) {
+                    console.log(`Сообщение: ${response.messages.length}`);
+                    
+                    // Преобразуем сообщения согласно структуре ответа
+                    chat.messages = response.messages.map(m => {
+                        console.log("Сообщение:", m);
+                        return {
+                            id: m.id || Date.now(),
+                            text: m.message || "", // ВАЖНО: поле называется "message", а не "text"
+                            time: m.timestamp ? 
+                                formatTime(m.timestamp) : 
+                                '--:--',
+                            fromMe: m.sender && m.sender.id === currentUserId,
+                            senderName: m.sender ? (m.sender.short_name || "Пользователь") : "Неизвестно"
+                        };
+                    });
+                    
+                    document.getElementById('online-status').textContent = `сообщений: ${chat.messages.length}`;
+                } else {
+                    console.warn("Нет сообщений или неверный формат ответа:", response);
+                    chat.messages = [];
+                    document.getElementById('online-status').textContent = 'нет сообщений';
+                }
+                
+                renderMessages(chatId);
+                renderChatList();
+                
+            })
+            .catch(error => {
+                console.error(`Ошибка загрузки сообщений:`, error);
+                
+                // Пробуем без offset
+                console.log("Пробуем без offset...");
+                apiRequest(`/chat/${chat.serverId}/messages?limit=50`)
+                    .then(response => {
+                        console.log("Ответ без offset:", response);
+                        if (response && response.messages) {
+                            chat.messages = response.messages.map(m => ({
+                                id: m.id || Date.now(),
+                                text: m.message || "",
+                                time: m.timestamp ? formatTime(m.timestamp) : '--:--',
+                                fromMe: m.sender && m.sender.id === currentUserId
+                            }));
+                            document.getElementById('online-status').textContent = `сообщений: ${chat.messages.length}`;
+                        } else {
+                            chat.messages = [];
+                            document.getElementById('online-status').textContent = 'нет сообщений';
+                        }
+                        renderMessages(chatId);
+                        renderChatList();
+                    })
+                    .catch(error2 => {
+                        console.error("И вторая попытка не удалась:", error2);
+                        chat.messages = [];
+                        document.getElementById('online-status').textContent = 'ошибка загрузки';
+                        renderMessages(chatId);
+                        renderChatList();
+                    });
+            });
+    }
+
+    // Добавьте функцию форматирования времени
+    function formatTime(timestamp) {
+        try {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        } catch (e) {
+            return '--:--';
+        }
+    }
+    // ======================= ОСТАЛЬНЫЕ ФУНКЦИИ (оставьте как есть) =======================
+    function showNoChatsMessage() {
+        const chatList = document.getElementById('chatList');
+        chatList.innerHTML = `
+            <div class="no-chats">
+                <p>У вас пока нет чатов</p>
+                <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                    Начните новый диалог
+                </p>
+            </div>
+        `;
+    }
+
     function renderChatList() {
         const chatList = document.getElementById('chatList');
         
@@ -226,65 +332,6 @@
         });
     }
 
-    function showNoChatsMessage() {
-        const chatList = document.getElementById('chatList');
-        chatList.innerHTML = `
-            <div class="no-chats">
-                <p>У вас пока нет чатов</p>
-                <p style="font-size: 14px; color: #666; margin-top: 10px;">
-                    Начните новый диалог
-                </p>
-            </div>
-        `;
-    }
-
-    // ======================= ЗАГРУЗКА ЧАТА =======================
-    async function loadChat(chatId) {
-        try {
-            const chat = chatsData[chatId];
-            if (!chat) return;
-            
-            currentChatId = chatId;
-            document.getElementById('current-avatar').textContent = chat.avatar;
-            document.getElementById('current-chat-name').textContent = chat.name;
-            document.getElementById('inputArea').style.display = 'block';
-            document.getElementById('online-status').textContent = 'загружаем...';
-            
-            // Загружаем сообщения
-            try {
-                const messages = await apiRequest(`/chat/${chat.serverId}/messages?limit=50&offset=0`);
-                
-                if (messages && Array.isArray(messages)) {
-                    chat.messages = messages.map(m => ({
-                        id: m.id || Date.now(),
-                        text: m.text || "",
-                        time: m.timestamp ? 
-                            new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 
-                            '--:--',
-                        fromMe: m.user_id === currentUserId
-                    }));
-                    
-                    document.getElementById('online-status').textContent = `сообщений: ${chat.messages.length}`;
-                } else {
-                    chat.messages = [];
-                    document.getElementById('online-status').textContent = 'нет сообщений';
-                }
-            } catch (error) {
-                console.error(`Ошибка загрузки сообщений:`, error);
-                chat.messages = [];
-                document.getElementById('online-status').textContent = 'ошибка';
-            }
-            
-            renderMessages(chatId);
-            renderChatList();
-            
-        } catch (error) {
-            console.error(`Ошибка загрузки чата:`, error);
-            alert(`Ошибка загрузки чата: ${error.message}`);
-        }
-    }
-
-    // ======================= РЕНДЕР СООБЩЕНИЙ =======================
     function renderMessages(chatId) {
         const chat = chatsData[chatId];
         const container = document.getElementById('messages-container');
@@ -303,15 +350,16 @@
             if (msg.fromMe) {
                 div.innerHTML = `
                     <div class="message-content">
-                        <div class="message-text">${msg.text}</div>
+                        <div class="message-text">${msg.text || ""}</div>
                         <div class="message-time">${msg.time}</div>
                     </div>
                 `;
             } else {
                 div.innerHTML = `
-                    <div class="message-avatar">${chat.avatar}</div>
+                    <div class="message-avatar">${msg.senderName ? msg.senderName.charAt(0).toUpperCase() : "?"}</div>
                     <div class="message-content">
-                        <div class="message-text">${msg.text}</div>
+                        <div class="message-sender">${msg.senderName || "Неизвестно"}</div>
+                        <div class="message-text">${msg.text || ""}</div>
                         <div class="message-time">${msg.time}</div>
                     </div>
                 `;
@@ -324,9 +372,7 @@
             container.scrollTop = container.scrollHeight;
         }, 100);
     }
-
-    // ======================= ОТПРАВКА СООБЩЕНИЯ =======================
-    async function sendMessage() {
+    function sendMessage() {
         if (!currentChatId) {
             alert("Выберите чат для отправки сообщения");
             return;
@@ -337,62 +383,47 @@
         
         if (!text) return;
         
-        try {
-            const chat = chatsData[currentChatId];
-            
-            // Локально добавляем сообщение
-            const newMsg = {
-                id: Date.now(),
-                text: text,
-                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
-                fromMe: true
-            };
-            
-            chat.messages.push(newMsg);
-            chat.last_message = text.length > 30 ? text.substring(0, 30) + "..." : text;
-            chat.last_time = newMsg.time;
-            
-            renderMessages(currentChatId);
-            renderChatList();
-            input.value = '';
-            
-            // Отправляем на сервер
-            try {
-                await apiRequest('/messages/by_user', {
-                    method: 'POST',
-                    body: JSON.stringify({ 
-                        chat_id: chat.serverId,
-                        text: text
-                    })
-                });
-                console.log("Сообщение отправлено на сервер");
-            } catch (error) {
-                console.error("Ошибка отправки на сервер:", error);
-            }
-            
-        } catch (error) {
-            console.error("Ошибка отправки сообщения:", error);
-            alert("Ошибка отправки: " + error.message);
-        }
+        const chat = chatsData[currentChatId];
+        
+        // Локально добавляем сообщение
+        const newMsg = {
+            id: Date.now(),
+            text: text,
+            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+            fromMe: true
+        };
+        
+        chat.messages.push(newMsg);
+        chat.last_message = text.length > 30 ? text.substring(0, 30) + "..." : text;
+        chat.last_time = newMsg.time;
+        
+        renderMessages(currentChatId);
+        renderChatList();
+        input.value = '';
+        
+        // Отправляем на сервер
+        apiRequest('/messages/by_user', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                chat_id: chat.serverId,
+                text: text
+            })
+        })
+        .then(() => {
+            console.log("Сообщение отправлено на сервер");
+        })
+        .catch(error => {
+            console.error("Ошибка отправки на сервер:", error);
+        });
     }
 
-    // ======================= ВЫХОД =======================
-    async function logout() {
+    function logout() {
         if (confirm("Вы уверены, что хотите выйти?")) {
-            try {
-                await apiRequest('/auth/logout', {
-                    method: 'POST'
-                });
-            } catch (error) {
-                console.error("Ошибка при выходе:", error);
-            }
-            
             localStorage.clear();
             window.location.href = "login.html";
         }
     }
 
-    // ======================= НАСТРОЙКА ОБРАБОТЧИКОВ =======================
     function setupEventListeners() {
         document.getElementById('send-btn').addEventListener('click', sendMessage);
         
@@ -409,5 +440,6 @@
     // ======================= ЗАПУСК =======================
     document.addEventListener('DOMContentLoaded', init);
     </script>
+    
 </body>
 </html>

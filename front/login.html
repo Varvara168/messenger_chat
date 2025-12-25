@@ -19,6 +19,7 @@
 
             <div class="remember">
                 <label><input type="checkbox"> Запомнить меня</label>
+                <a href="#">Забыли пароль?</a>
             </div>
             <button type="submit" class="btn">Войти</button>
 
@@ -41,26 +42,20 @@
         try {
             const res = await fetch("http://localhost:8000/auth/login", {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
+                headers: {
+                    "Content-Type": "application/json"
+                },
                 body: JSON.stringify(data)
             });
 
             const result = await res.json();
-            console.log("Login response:", result);  // ОТЛАДКА
+            console.log("Login response:", result);
             
             if (res.ok) {
-                // ОТЛАДКА - что сохраняем
-                console.log("Token to save:", result.access_token);
-                console.log("User ID:", result.user_id);
-                
-                // Сохраняем токен в localStorage
+                // ВАЖНО: Сохраняем токен в localStorage
                 localStorage.setItem("ACCESS_TOKEN", result.access_token);
-                localStorage.setItem("USER_ID", result.user_id);
-                localStorage.setItem("USER_NAME", result.user?.short_name || "Пользователь");
-                
-                // Проверяем сохранение
-                console.log("Saved token:", localStorage.getItem("ACCESS_TOKEN"));
-                console.log("Saved user ID:", localStorage.getItem("USER_ID"));
+                localStorage.setItem("CURRENT_USER_ID", result.user_id);
+                localStorage.setItem("CURRENT_USER_NAME", result.user?.short_name || result.user?.first_name || "Пользователь");
                 
                 // Переходим в чат
                 window.location.href = "chat.html";

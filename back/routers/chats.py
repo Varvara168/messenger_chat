@@ -104,7 +104,7 @@ def get_chats(current_user: User = Depends(get_current_user), db: Session = Depe
     return result
 
 
-@router.get("/{id}/messages", response_model=MessagesResponse)
+@router.get("/{chat_id}/messages", response_model=MessagesResponse)
 def get_messages(
     chat_id: int,
     current_user: User = Depends(get_current_user),
