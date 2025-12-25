@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <link rel="stylesheet" href="registr.css">
+    <!-- <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'> -->
+</head>
+
+<body>
+    <div class="wrapper">
+        <form id="registerForm">
+            <h1>Регистрация</h1>
+            <div class="input-box">
+                <input type="text" name="first_name" placeholder="Имя" required>
+            </div>
+            <div class="input-box">
+                <input type="text" name="last_name" placeholder="Фамилия" required>
+            </div>
+            <div class="input-box">
+                <input type="text" name="short_name" placeholder="@Nik" required>
+            </div>
+            <div class="input-box">
+                <input type="text" name="phone" placeholder="Телефон" required>
+            </div>
+            <div class="input-box">
+                <input type="password" name="password" placeholder="Пароль" required>
+            </div>
+
+            <button type="submit" class="btn">Зарегистрироваться</button>
+            
+            <div class="login-link">
+                <p>У вас есть аккаунт? <a href="login.html">Войти</a></p>
+
+        </form>
+    </div>
+    <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault(); // не перезагружать страницу
+
+        const form = e.target;
+        const data = {
+            first_name: form.first_name.value,
+            last_name: form.last_name.value,
+            short_name: form.short_name.value,
+            phone: form.phone.value,
+            password: form.password.value
+        };
+
+        try {
+            const res = await fetch("http://localhost:8000/auth/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data),
+                credentials: "include" // если используешь куки
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message);
+                window.location.href = "login.html"; // редирект на логин
+            } else {
+                alert(result.detail);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка при регистрации");
+        }
+    });
+    </script>
+
+</body>
+</html>

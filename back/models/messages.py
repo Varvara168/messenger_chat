@@ -12,9 +12,9 @@ class Message(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    text: Mapped[str]
-    photo_url: Mapped[str]
-    attachments: Mapped[str]
+    text: Mapped[str] = mapped_column(default="")
+    photo_url: Mapped[str] = mapped_column(default="")
+    attachments: Mapped[str] = mapped_column(default="")
     timestamp: Mapped[str] = mapped_column(DateTime, default=datetime.utcnow)
     status: Mapped[str] = mapped_column(default="sent")  # sent, delivered, read
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)

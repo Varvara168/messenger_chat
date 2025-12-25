@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class ChatCreate(BaseModel):
-    query: str
+    creds: str
 
 
 class ChatOut(BaseModel):

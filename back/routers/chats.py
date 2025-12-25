@@ -6,37 +6,25 @@ from db import get_db
 from back.models.chats import Chat
 from back.schemas.chats import ChatCreate, ChatOut
 from back.models.users import User
-from back.routers.auth import security
 from back.models.messages import Message
 from back.schemas.messages import MessageOut, MessagesResponse
 from back.models.chat_members import ChatMembers
 from back.schemas.messages import SenderOut
 from datetime import datetime
+from back.get_current_user import get_current_user
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-def get_current_user(db: Session = Depends(get_db)) -> User:
-    # текущий пользователь фиксирован
-    user = db.execute(select(User).where(User.short_name == "maksim_dyakov")).scalar_one_or_none()
-    if not user:
-        raise HTTPException(401, "User not found")
-    return user
-
-
 @router.post("/create_chat")
 def create_chat(chat: ChatCreate, current_user: User = Depends(get_current_user), db=Depends(get_db)):
-    
-    chat_member = db.execute(
-        select(User)
-        .where(or_(User.short_name == chat.query, User.phone == chat.query))
-    ).scalar_one_or_none()
+
+    chat_member = db.get(User, chat.creds)
     
     if not chat_member:
-        raise HTTPException(status_code=404, detail="User not found") #Такой пользователь не найден
-    
+        raise HTTPException(status_code=404, detail="User not found") 
     if chat_member.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot create chat with yourself") #Нельзя создать чат с самим собой
+        raise HTTPException(status_code=400, detail="Cannot create chat with yourself")
 
     # Проверяем, есть ли уже личный чат с этим пользователем
     existing_chat = db.execute(
@@ -78,8 +66,7 @@ def create_chat(chat: ChatCreate, current_user: User = Depends(get_current_user)
 
 
 @router.get("/get_chats", response_model=list[ChatOut])
-def get_chats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Получаем все чаты пользователя
+def get_chats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):   # Получаем все чаты пользователя
     chat_ids = db.execute(
         select(ChatMembers.chat_id)
         .where(ChatMembers.user_id == current_user.id)
@@ -129,7 +116,7 @@ def get_messages(
     if not chat:
         raise HTTPException(404, "Chat not found")
 
-    # 1️⃣ проверка участия в чате
+    # проверка участия в чате
     member_ids = db.execute(
         select(ChatMembers.user_id)
         .where(ChatMembers.chat_id == chat_id)
@@ -138,7 +125,7 @@ def get_messages(
     if current_user.id not in member_ids:
         raise HTTPException(403, "Not a member of this chat")
 
-    # 2️⃣ получаем сообщения
+    # получаем сообщения
     messages = db.execute(
         select(Message)
         .where(Message.chat_id == chat_id)
@@ -149,7 +136,7 @@ def get_messages(
 
     now = datetime.utcnow()
 
-    # 3️⃣ delivered_at — пользователь ПОЛУЧИЛ сообщения
+    # delivered_at — пользователь ПОЛУЧИЛ сообщения
     undelivered = db.execute(
         select(Message)
         .where(
@@ -162,7 +149,7 @@ def get_messages(
     for m in undelivered:
         m.delivered_at = now
 
-    # 4️⃣ read_at — пользователь ПРОЧИТАЛ чат
+    # read_at — пользователь ПРОЧИТАЛ чат
     unread = db.execute(
         select(Message)
         .where(
@@ -177,7 +164,7 @@ def get_messages(
 
     db.commit()
 
-    # 5️⃣ формируем ответ
+    # формируем ответ
     result = []
     for m in messages:
         sender = m.sender

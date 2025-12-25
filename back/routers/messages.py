@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from datetime import datetime
 
 from db import get_db
 from back.models.messages import Message
 from back.models.users import User
 from back.models.chats import Chat
-from back.schemas.messages import MessageCreate, MessageOut
-from back.routers.chats import get_current_user
+from back.schemas.messages import MessageCreate, MessageOut, SenderOut
+from back.get_current_user import get_current_user
 from back.models.chat_members import ChatMembers
 
 
@@ -20,70 +20,68 @@ def send_message_to_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sender = current_user
-
-    receiver = db.execute(
-        select(User).where(
-            or_(User.short_name == message_in.receiver_query,
-                User.phone == message_in.receiver_query)
+    # ID_QUERY теперь это ID чата
+    chat_id = int(message_in.id_query)
+    
+    # Проверяем, существует ли чат и является ли текущий пользователь его участником
+    chat = db.execute(
+        select(Chat)
+        .join(ChatMembers, Chat.id == ChatMembers.chat_id)
+        .where(
+            Chat.id == chat_id,
+            ChatMembers.user_id == current_user.id
         )
     ).scalar_one_or_none()
 
-    if not receiver:
-        raise HTTPException(404, "Receiver not found")
-    if receiver.id == sender.id:
-        raise HTTPException(400, "Cannot send message to yourself")
-     
-    possible_chats = db.execute(
-        select(Chat)
-        .join(ChatMembers)
-        .where(Chat.type == "personal")
-    ).scalars().all()
-
-    chat = None
-    for c in possible_chats:
-        member_ids = [m.user_id for m in db.execute(select(ChatMembers).where(ChatMembers.chat_id == c.id)).scalars().all()]
-        if set(member_ids) == set([sender.id, receiver.id]):
-            chat = c
-            break
-
-
     if not chat:
-        chat = Chat(
-            type="personal",
-            title=receiver.first_name, 
-            members=", ".join([str(current_user.id), str(receiver.id)]),
-            last_message=None
+        raise HTTPException(404, "Chat not found or you are not a member")
+    
+    # Проверяем, что чат персональный (если нужно)
+    if chat.type != "personal":
+        raise HTTPException(400, "Can only send messages to personal chats")
+    
+    # Получаем второго участника чата (получателя сообщения)
+    other_member = db.execute(
+        select(User)
+        .join(ChatMembers, User.id == ChatMembers.user_id)
+        .where(
+            ChatMembers.chat_id == chat_id,
+            User.id != current_user.id  # Исключаем отправителя
         )
+    ).scalar_one_or_none()
 
-        db.add(chat)
-        db.commit()
-        db.refresh(chat)
-        db.add_all([
-            ChatMembers(chat_id=chat.id, user_id=sender.id),
-            ChatMembers(chat_id=chat.id, user_id=receiver.id)
-        ])
-        db.commit()
-
-
+    if not other_member:
+        raise HTTPException(404, "Receiver not found in chat")
+    
+    # Проверяем, не пишем ли мы сами себе
+    if other_member.id == current_user.id:
+        raise HTTPException(400, "Cannot send message to yourself")
+    
+    # Создаем сообщение
     message = Message(
-        chat_id=chat.id,
-        user_id=sender.id,
+        chat_id=chat_id,
+        user_id=current_user.id,
         text=message_in.content,
         photo_url="",
         attachments="",
         timestamp=datetime.utcnow(),
         status="sent"
     )
+    
     db.add(message)
+    
+    # Обновляем последнее сообщение в чате
+    chat.last_message = message_in.content
     db.commit()
     db.refresh(message)
-
-    # обновляем
-    chat.last_message = message.text
-    db.commit()
-
-    return MessageOut.from_orm(message)
-
-
-
+    
+    # Формируем ответ
+    return MessageOut(
+        sender=SenderOut(
+            id=current_user.id,
+            short_name=current_user.short_name,
+            avatar=current_user.avatar
+        ),
+        message=message.text,
+        timestamp=message.timestamp
+    )

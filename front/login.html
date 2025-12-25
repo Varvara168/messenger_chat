@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="wrapper">
+        <form id="loginForm">
+            <h1>Вход</h1>
+            <div class="input-box">
+                <input type="text" name="creds" placeholder="Телефон или логин" required>
+            </div>
+            <div class="input-box">
+                <input type="password" name="password" placeholder="Пароль" required>
+            </div>
+
+            <div class="remember">
+                <label><input type="checkbox"> Запомнить меня</label>
+            </div>
+            <button type="submit" class="btn">Войти</button>
+
+            <div class="register-link">
+                <p>У вас нет аккаунта? <a href="registr.html">Зарегистрироваться</a></p>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const form = e.target;
+        const data = {
+            creds: form.creds.value,
+            password: form.password.value
+        };
+
+        try {
+            const res = await fetch("http://localhost:8000/auth/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            });
+
+            const result = await res.json();
+            console.log("Login response:", result);  // ОТЛАДКА
+            
+            if (res.ok) {
+                // ОТЛАДКА - что сохраняем
+                console.log("Token to save:", result.access_token);
+                console.log("User ID:", result.user_id);
+                
+                // Сохраняем токен в localStorage
+                localStorage.setItem("ACCESS_TOKEN", result.access_token);
+                localStorage.setItem("USER_ID", result.user_id);
+                localStorage.setItem("USER_NAME", result.user?.short_name || "Пользователь");
+                
+                // Проверяем сохранение
+                console.log("Saved token:", localStorage.getItem("ACCESS_TOKEN"));
+                console.log("Saved user ID:", localStorage.getItem("USER_ID"));
+                
+                // Переходим в чат
+                window.location.href = "chat.html";
+            } else {
+                alert(result.detail || "Ошибка входа");
+            }
+        } catch (err) {
+            console.error("Login error:", err);
+            alert("Ошибка при подключении к серверу");
+        }
+    });
+    </script>
+</body>
+</html>

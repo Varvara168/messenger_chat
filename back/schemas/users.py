@@ -7,10 +7,9 @@ class UserRegister(BaseModel):
     short_name: str
     password: str
     phone: str
-    avatar: str
 
 class UserLogin(BaseModel):
-    phone: str
+    creds: str
     password: str
 
 class UserOut(BaseModel):
@@ -19,7 +18,6 @@ class UserOut(BaseModel):
     last_name: str
     short_name: str
     phone: str
-    avatar: str
 
     class Config:
         from_attributes = True

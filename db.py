@@ -1,31 +1,20 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-engine = create_engine(url="sqlite:///clients.db")
+# правильная строка подключения
+engine = create_engine(
+    "postgresql+psycopg2://messenger_user:password@localhost:5432/messenger_db",
+    echo=True
+)
 
-session = sessionmaker(engine)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 def get_db():
-    db = session()
+    db = SessionLocal()
     try:
         yield db
     finally:
-        db.close() 
-        
-class Base(DeclarativeBase): #родительский класс
+        db.close()
+
+class Base(DeclarativeBase):
     pass
-
-# class Channel(Base):
-#     __tablename__ = "channels"
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     title: Mapped[str]
-#     author_id: Mapped[int]
-#     privacy: Mapped[str]
-#     posts: Mapped[str]
-
-# class Group(Base):
-#     __tablename__ = "groups"
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     name: Mapped[str]
-#     members: Mapped[str]
-#     invites: Mapped[str]

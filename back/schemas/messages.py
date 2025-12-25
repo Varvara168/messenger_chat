@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 
 
 class MessageCreate(BaseModel):
-    receiver_query: str
+    id_query: str
     content: str
 
 class SenderOut(BaseModel):

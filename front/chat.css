@@ -1,0 +1,390 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+/* Боковая панель */
+.sidebar {
+    width: 30%;
+    max-width: 500px;
+    min-width: 300px;
+    background: #f8f8f8;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-list {
+    padding: 10px;
+}
+
+.chat-item {
+    display: flex;
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-item:hover {
+    background: #f0f0f0;
+}
+
+.chat-item.active {
+    background: #ebf5ff;
+}
+
+.avatar {
+    width: 50px;
+    height: 50px;
+    background: #0088cc;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.chat-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.chat-name {
+    font-weight: bold;
+    font-size: 16px;
+    color: #000;
+}
+
+.time {
+    font-size: 12px;
+    color: #999;
+}
+
+.last-message {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.last-message span:first-child {
+    font-size: 14px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.unread {
+    background: #0088cc;
+    color: white;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* Основной чат */
+.main-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #e5ddd5;
+}
+
+.chat-header {
+    background: #0088cc;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.current-avatar {
+    width: 40px;
+    height: 40px;
+    background: #0088cc;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid white;
+    margin-right: 10px;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.current-chat-name {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.online {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.header-right button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+/* Сообщения */
+.messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Это ключевое свойство! */
+    gap: 10px;
+    min-height: 0; /* Важно для flex-контейнера */
+}
+.message {
+    display: flex;
+    max-width: 70%;
+}
+
+.message.friend {
+    align-self: flex-start;
+}
+
+.message.me {
+    align-self: flex-end;
+}
+
+.message-avatar {
+    width: 35px;
+    height: 35px;
+    background: #0088cc;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 8px;
+    align-self: flex-end;
+    flex-shrink: 0;
+}
+
+.message-content {
+    background: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    position: relative;
+    max-width: 100%;
+}
+
+.message.me .message-content {
+    background: #dcf8c6;
+}
+
+.message-text {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.message-time {
+    font-size: 11px;
+    color: #999;
+    text-align: right;
+}
+
+/* Поле ввода */
+.input-area {
+    background: #f0f0f0;
+    padding: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.input-wrapper {
+    display: flex;
+    gap: 10px;
+}
+
+.input-wrapper input {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+}
+
+.input-wrapper input:focus {
+    border-color: #0088cc;
+}
+
+.input-wrapper button {
+    background: #0088cc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.input-wrapper button:hover {
+    background: #0077b3;
+}
+
+/* Скроллбар */
+.sidebar::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+
+
+        /* Добавляем стили для загрузки */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: #666;
+            z-index: 1000;
+        }
+        
+        .error {
+            color: #ff4444;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .no-chats {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .sidebar-header {
+            padding: 15px;
+            background: #0088cc;
+            color: white;
+            border-bottom: 1px solid #0077b3;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: white;
+            color: #0088cc;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .user-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .welcome-message {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+            font-size: 16px;
+        }
+        
+        .no-messages {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+            font-size: 16px;
+        }
+        
+        #logoutBtn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #logoutBtn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .retry-btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+  
