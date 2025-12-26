@@ -63,8 +63,6 @@ def create_chat(chat: ChatCreate, current_user: User = Depends(get_current_user)
 
     return new_chat #Чат успешно создан
 
-
-
 @router.get("/get_chats", response_model=list[ChatOut])
 def get_chats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):   # Получаем все чаты пользователя
     chat_ids = db.execute(
@@ -102,7 +100,6 @@ def get_chats(current_user: User = Depends(get_current_user), db: Session = Depe
         ))
 
     return result
-
 
 @router.get("/{chat_id}/messages", response_model=MessagesResponse)
 def get_messages(

@@ -12,11 +12,23 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 @router.get("/users", response_model=List[UserOut])
 def search_users(query: str, db: Session = Depends(get_db)) -> List[UserOut]:
+    if not query or not query.strip():
+        return []
+    
+    search_term = f"%{query.strip()}%"
+    
+    # Ищем по отдельным полям
     users = db.execute(
         select(User)
         .where(or_(
-            User.short_name.ilike(f"%{query}%"),
-            User.phone.ilike(f"%{query}%")
+            User.first_name.ilike(search_term),
+            User.last_name.ilike(search_term),
+            User.short_name.ilike(search_term),
+            User.phone.ilike(search_term),
+            # Ищем по комбинации "Имя Фамилия"
+            (User.first_name + ' ' + User.last_name).ilike(search_term),
+            # Ищем по комбинации "Фамилия Имя"
+            (User.last_name + ' ' + User.first_name).ilike(search_term)
         ))
         .limit(20)
     ).scalars().all()
