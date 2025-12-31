@@ -59,7 +59,7 @@ messenger.db
 chat.db
 user_status.db
 
-# MIGRATIONS (Alembic)
+# Миграции Alembic
 migrations/
 alembic/versions/*.py
 !alembic/versions/__init__.py
@@ -109,17 +109,6 @@ static/uploads/*
 media/
 instance/
 
-# NODE.JS (для LocalTunnel и т.п.)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-yarn.lock
-
-# TUNNELING TOOLS
-.ngrok/
-.cloudflared/
 
 # HOSTING PLATFORMS
 .replit
@@ -179,18 +168,6 @@ config.ini
 
 # SQLALCHEMY
 *.db-journal
-
-# FRONTEND BUILD (если будет)
-dist/
-static/js/*.min.js
-static/css/*.min.css
-
-# DOCKER (если будешь использовать)
-Dockerfile
-.dockerignore
-docker-compose.yml
-docker-compose.*.yml
-postgres_data/
 
 # PYINSTALLER
 *.spec
