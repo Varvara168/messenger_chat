@@ -200,3 +200,105 @@ def delete_personal_chats(current_user: User = Depends(get_current_user), db: Se
         db.commit()
 
     return {"deleted_chats": len(chat_ids)}
+
+
+@router.delete("/{chat_id}/delete_for_all")
+def delete_personal_chat_for_all(chat_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Полностью удаляет личный чат для всех участников"""
+
+    chat = db.execute(
+        select(Chat)
+        .where(Chat.id == chat_id)
+    ).scalar_one_or_none()
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    
+    if chat.type != "personal":
+        raise HTTPException(
+            status_code=400, 
+            detail="Можно удалять только личные чаты"
+        )
+    
+    is_member = db.execute(
+        select(ChatMembers)
+        .where(
+            ChatMembers.chat_id == chat_id,
+            ChatMembers.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    
+    if not is_member:
+        raise HTTPException(
+            status_code=403, 
+            detail="Вы не участник этого чата"
+        )
+    
+    db.execute(delete(Message).where(Message.chat_id == chat_id))
+    db.execute(delete(ChatMembers).where(ChatMembers.chat_id == chat_id))
+    db.execute(delete(Chat).where(Chat.id == chat_id))
+    
+    db.commit()
+    
+    other_user_id = db.execute(
+        select(ChatMembers.user_id)
+        .where(
+            ChatMembers.chat_id == chat_id,
+            ChatMembers.user_id != current_user.id
+        )
+    ).scalar()
+    
+    return {
+        "deleted": True,
+        "chat_id": chat_id,
+        "deleted_for_all": True,
+        "other_user_notified": other_user_id is not None
+    }
+
+@router.get("/{chat_id}/partner_id")
+async def get_chat_partner_id(
+    chat_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Получить ID собеседника в личном чате
+    """
+    # Проверяем, существует ли чат
+    chat = db.get(Chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    
+    # Проверяем, что это личный чат
+    if chat.type != "personal":
+        return {
+            "partner_id": None,
+            "is_personal_chat": False,
+            "message": "Это не личный чат"
+        }
+    
+    # Получаем всех участников чата
+    members = db.execute(
+        select(ChatMembers.user_id)
+        .where(ChatMembers.chat_id == chat_id)
+    ).scalars().all()
+    
+    # Находим ID собеседника (не текущего пользователя)
+    partner_id = None
+    for member_id in members:
+        if member_id != current_user.id:
+            partner_id = member_id
+            break
+    
+    if not partner_id:
+        raise HTTPException(status_code=404, detail="Собеседник не найден")
+    
+    # Получаем информацию о собеседнике
+    partner = db.get(User, partner_id)
+    
+    return {
+        "partner_id": partner_id,
+        "partner_name": partner.first_name,
+        "partner_short_name": partner.short_name,
+        "is_personal_chat": True
+    }

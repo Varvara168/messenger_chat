@@ -9,7 +9,7 @@ from back.models.users import User
 from back.models.chats import Chat
 from back.models.messages import Message
 from back.models.chat_members import ChatMembers # импортируем модели для миграций
-
+from back.models.status import UserStatus
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

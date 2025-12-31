@@ -52,10 +52,11 @@
             console.log("Login response:", result);
             
             if (res.ok) {
-                // ВАЖНО: Сохраняем токен в localStorage
+                // Сохраняем токен и данные пользователя
                 localStorage.setItem("ACCESS_TOKEN", result.access_token);
                 localStorage.setItem("CURRENT_USER_ID", result.user_id);
-                localStorage.setItem("CURRENT_USER_NAME", result.user?.short_name || result.user?.first_name || "Пользователь");
+                localStorage.setItem("CURRENT_USER_NAME", result.user?.first_name || "Пользователь");
+                localStorage.setItem("CURRENT_USER_SHORT_NAME", result.user?.short_name || "");
                 
                 // Переходим в чат
                 window.location.href = "chat.html";

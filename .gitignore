@@ -1,48 +1,209 @@
-# Python
+
+# PYTHON
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.env
-*.venv
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
 *.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+*.pyo
+*.pyd
+.python-version
 
-# Virtual environments
+# VIRTUAL ENVIRONMENTS
 venv/
 env/
 ENV/
 .venv/
 .env/
+env.bak/
+venv.bak/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# PACKAGE MANAGERS
+Pipfile.lock
+poetry.lock
+.poetry/
+*.egg-info/
+
+# DATABASE
+*.db
+*.sqlite3
+*.sqlite
+db.sqlite3
+db.sqlite3-journal
+*.dump
+*.backup
+messenger.db
+chat.db
+user_status.db
+
+# MIGRATIONS (Alembic)
+migrations/
+alembic/versions/*.py
+!alembic/versions/__init__.py
+
+# LOGS
+*.log
+logs/
+log/
+chat.log
+error.log
+debug.log
+*.log.*
+
+# TESTING & COVERAGE
+.pytest_cache/
+.coverage
+.coverage.*
+.coverage
+*.cover
+*.py,cover
+htmlcov/
+nosetests.xml
+coverage.xml
+.pytest_cache/
+
+# TYPE CHECKING (MyPy)
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # IDEs
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.swp
+*.swo
+*~
 
-# Database
-*.db
-*.sqlite3
-*.sqlite
+# JUPYTER
+.ipynb_checkpoints
 
-# Migrations
-migrations/
-
-# Logs
-*.log
-
-# Pytest cache
-.pytest_cache/
-
-# MyPy cache
-.mypy_cache/
-
-# Coverage reports
-htmlcov/
-.coverage
-
-# FastAPI uploads
+# FASTAPI / UPLOADS
 uploads/
+static/uploads/*
+!static/uploads/.gitkeep
+media/
+instance/
 
-# Misc
+# NODE.JS (для LocalTunnel и т.п.)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# TUNNELING TOOLS
+.ngrok/
+.cloudflared/
+
+# HOSTING PLATFORMS
+.replit
+.replit.nix
+.railway/
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# WINDOWS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# LINUX
+*~
+
+# TEMPORARY FILES
+*.tmp
+*.temp
+*.bak
+*.backup
+*.session
+*.lock
+
+# CONFIG FILES & SECRETS
+*.local
+*.local.*
+config.yaml
+config.yml
+config.json
+secrets/
+*.pem
+*.key
+*.cert
+*.crt
+secret_key.txt
+jwt_secret.txt
+credentials.json
+config.ini
+.secrets
+
+# CACHE
+.cache/
+
+# SQLALCHEMY
+*.db-journal
+
+# FRONTEND BUILD (если будет)
+dist/
+static/js/*.min.js
+static/css/*.min.css
+
+# DOCKER (если будешь использовать)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+postgres_data/
+
+# PYINSTALLER
+*.spec
+
+# CYTHON
+*.c
+
+# PROJECT SPECIFIC
+# Твой проект Messenger
+*.session
+*.lock
+*.db
+user_sessions/
+temp/
+cache/
+__pycache__

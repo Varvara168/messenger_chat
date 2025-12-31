@@ -15,6 +15,7 @@
                 <div class="user-info">
                     <div class="user-avatar" id="user-avatar">?</div>
                     <div class="user-name" id="user-name">Пользователь</div>
+                    <button id="logoutBtn" title="Выйти">Выйти</button>
                 </div>
             </div>
             <div class="search-box" id="chatSearchBox">
@@ -40,7 +41,7 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <button id="logoutBtn" title="Выйти">Выйти</button>
+                    <button id="deleteChatBtn" title="Удалить">Удалить</button>
                 </div>
             </div>
 
@@ -68,6 +69,10 @@
     let currentChatId = null;
     let currentUserId = null;
     let currentUserName = null;
+    
+    // Для статусов
+    let currentPartnerId = null;
+    let statusCheckInterval = null;
 
     // ======================= ГЕНЕРАЦИЯ ЦВЕТА ПО ИМЕНИ =======================
     function getAvatarColor(name) {
@@ -88,12 +93,10 @@
         return colors[index];
     }
 
-    // ======================= СИНХРОННЫЕ ФУНКЦИИ =======================
-    function apiRequest(endpoint, options = {}) { // Синхронный запрос к API
+    // ======================= API ЗАПРОСЫ =======================
+    function apiRequest(endpoint, options = {}) {
         const url = `${API_BASE}${endpoint}`; 
         const token = localStorage.getItem("ACCESS_TOKEN");
-        
-        console.log(`Запрос к: ${endpoint}`);
         
         const defaultOptions = {
             headers: {
@@ -103,18 +106,13 @@
             ...options
         };
 
-        // Добавляем токен в заголовок
         if (token) {
             defaultOptions.headers['Authorization'] = `Bearer ${token}`;
-            console.log(`Токен добавлен в заголовок`);
         }
 
         return fetch(url, defaultOptions)
             .then(response => {
-                console.log(`Ответ от ${endpoint}: ${response.status}`);
-                
                 if (response.status === 401) {
-                    console.log("Ошибка 401 - токен недействителен");
                     localStorage.clear();
                     alert("Сессия истекла. Пожалуйста, войдите снова.");
                     window.location.href = "login.html";
@@ -133,11 +131,140 @@
             });
     }
 
+    // ======================= СТАТУСЫ ПОЛЬЗОВАТЕЛЕЙ =======================
+    
+    async function getUserStatus(userId) {
+        try {
+            const response = await apiRequest(`/user/${userId}/status`);
+            return response;
+        } catch (error) {
+            console.error(`Ошибка получения статуса пользователя ${userId}:`, error);
+            return null;
+        }
+    }
+    
+    async function updateMyStatus(isOnline) {
+        try {
+            const response = await apiRequest(`/user/status/update?is_online=${isOnline}`, {
+                method: 'POST'
+            });
+            console.log('Статус обновлен:', response.message);
+            return response;
+        } catch (error) {
+            console.error('Ошибка обновления статуса:', error);
+        }
+    }
+    
+    async function getChatPartnerId(chatId) {
+        try {
+            const response = await apiRequest(`/chat/${chatId}/partner_id`);
+            return response.partner_id;
+        } catch (error) {
+            console.error(`Ошибка получения partner_id:`, error);
+            return null;
+        }
+    }
+    
+    function formatExactTime(timestamp) {
+        if (!timestamp) return 'никогда не был(а) в сети';
+        
+        // Если timestamp уже отформатирован сервером
+        if (typeof timestamp === 'string') {
+            // Проверяем, не содержит ли уже отформатированное время
+            if (timestamp.includes('.') || timestamp.includes(':') || timestamp.includes('-')) {
+                // Пробуем распарсить
+                try {
+                    const date = new Date(timestamp);
+                    if (!isNaN(date.getTime())) {
+                        // Успешно распарсили - форматируем
+                        return formatSimpleDate(date);
+                    }
+                } catch (e) {
+                    // Не смогли распарсить - возвращаем как есть
+                    return timestamp;
+                }
+            }
+        }
+        
+        // Пробуем создать дату
+        try {
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) {
+                return 'время неизвестно';
+            }
+            return formatSimpleDate(date);
+        } catch (e) {
+            return 'время неизвестно';
+        }
+    }
+
+    function formatSimpleDate(date) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const timeStr = date.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        
+        if (date >= today) {
+            return `сегодня в ${timeStr}`;
+        }
+        
+        if (date >= yesterday) {
+            return `вчера в ${timeStr}`;
+        }
+        
+        const dateStr = date.toLocaleDateString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        });
+        
+        return `${dateStr} в ${timeStr}`;
+    }
+        
+    async function updatePartnerStatus() {
+        if (!currentChatId || !currentPartnerId) return;
+        
+         const status = await getUserStatus(currentPartnerId);
+        const statusElement = document.getElementById('online-status');
+        
+        if (!status) {
+            statusElement.textContent = 'статус неизвестен';
+            statusElement.style.color = '#7f8c8d';
+            return;
+        }
+        
+        if (status.is_online) {
+            statusElement.textContent = 'онлайн';
+            statusElement.style.color = '#27ae60';
+            statusElement.title = 'Сейчас онлайн';
+        } else {
+            const exactTime = formatExactTime(status.last_seen);
+            statusElement.textContent = `был(а) ${exactTime}`;
+            statusElement.style.color = '#7f8c8d';
+            statusElement.title = `Был(а) в сети: ${exactTime}`;
+        }
+    }
+    
+    function markMeOnline() {
+        if (!currentUserId) return;
+        
+        updateMyStatus(true);
+        
+        window.addEventListener('beforeunload', () => {
+            updateMyStatus(false);
+        });
+    }
+
     // ======================= ИНИЦИАЛИЗАЦИЯ =======================
     function init() {
         console.log("Инициализация чата...");
         
-        // Проверяем токен
         const token = localStorage.getItem("ACCESS_TOKEN");
         if (!token) {
             alert("Вы не авторизованы. Пожалуйста, войдите.");
@@ -145,30 +272,28 @@
             return;
         }
         
-        // Получаем данные пользователя
         apiRequest('/auth/me')
             .then(userData => {
                 if (!userData) return;
                 
-                console.log("Данные пользователя:", userData);
-                
                 currentUserId = userData.user.id;
-                currentUserName = userData.user.first_name || userData.user.first_name || "Пользователь";
+                currentUserName = userData.user.first_name || "Пользователь";
                 const userAvatar = currentUserName.charAt(0).toUpperCase();
                 
-                // Обновляем интерфейс
                 document.getElementById('user-name').textContent = currentUserName;
                 document.getElementById('user-avatar').textContent = userAvatar;
+                document.getElementById('user-avatar').style.backgroundColor = getAvatarColor(currentUserName);
                 
-                // Загружаем чаты
+                document.getElementById('deleteChatBtn').disabled = true;
+
+                markMeOnline();
+                
                 return loadChats();
             })
             .then(() => {
-                // Показываем интерфейс
                 loading.style.display = 'none';
                 chatApp.style.display = 'flex';
                 
-                // Настраиваем обработчики
                 setupEventListeners();
                 
                 console.log("Чат инициализирован");
@@ -180,7 +305,8 @@
             });
     }
 
-    // ======================= ЗАГРУЗКА ЧАТОВ =======================
+
+    // ======================= ЗАГРУЗКА ЧАТОВ С СООБЩЕНИЯМИ =======================
     function loadChats() {
         console.log("Загрузка списка чатов...");
         
@@ -191,43 +317,71 @@
                 chatsData = {};
                 
                 if (Array.isArray(chats) && chats.length > 0) {
-                    chats.forEach(chat => {
+                    // Массив промисов для загрузки последних сообщений
+                    const loadPromises = chats.map(chat => {
                         const chatId = chat.id;
                         const chatName = chat.title || `Чат ${chatId}`;
-                        
-                        // СОХРАНЯЕМ ЦВЕТ ДЛЯ ЭТОГО ЧАТА
                         const avatarColor = getAvatarColor(chatName);
                         
+                        // Сразу создаем объект чата
                         chatsData[chatId] = {
                             id: chatId,
                             name: chatName,
                             avatar: (chat.title || "Ч").charAt(0).toUpperCase(),
                             messages: [],
                             last_message: chat.last_message || "",
-                            last_time: "12:00",
+                            last_time: 'загрузка...',
+                            last_message_raw: null,
                             serverId: chatId,
-                            avatarColor: avatarColor  // ЦВЕТ
+                            avatarColor: avatarColor
                         };
+                        
+                        // Загружаем последние сообщения для этого чата
+                        return apiRequest(`/chat/${chatId}/messages?limit=1`)
+                            .then(response => {
+                                if (response && response.messages && response.messages.length > 0) {
+                                    const lastMsg = response.messages[response.messages.length - 1];
+                                    
+                                    // Обновляем информацию о последнем сообщении
+                                    chatsData[chatId].last_message = lastMsg.message || "";
+                                    chatsData[chatId].last_message_raw = lastMsg.timestamp;
+                                    chatsData[chatId].last_time = formatChatTime(lastMsg.timestamp);
+                                    
+                                    console.log(`Чат ${chatId}: последнее сообщение в ${lastMsg.timestamp}`);
+                                } else {
+                                    // Если нет сообщений
+                                    chatsData[chatId].last_time = 'нет сообщений';
+                                    console.log(`Чат ${chatId}: нет сообщений`);
+                                }
+                            })
+                            .catch(error => {
+                                console.error(`Ошибка загрузки сообщений для чата ${chatId}:`, error);
+                                chatsData[chatId].last_time = 'ошибка';
+                            });
                     });
                     
-                    renderChatList();
-                    
-                    // ПРОВЕРЯЕМ, ЕСТЬ ЛИ СОХРАНЕННЫЙ ЧАТ
-                    const savedChatId = localStorage.getItem('LAST_OPENED_CHAT');
-                    let chatToOpen = null;
-                    
-                    if (savedChatId && chatsData[savedChatId]) {
-                        // Если сохраненный чат существует в списке - открываем его
-                        chatToOpen = savedChatId;
-                        console.log("Восстанавливаем сохраненный чат:", savedChatId);
-                    } else {
-                        // Иначе берем первый чат
-                        chatToOpen = Object.keys(chatsData)[0];
-                    }
-                    
-                    if (chatToOpen) {
-                        setTimeout(() => loadChat(chatToOpen), 100);
-                    }
+                    // Ждем загрузки всех последних сообщений
+                    return Promise.all(loadPromises)
+                        .then(() => {
+                            console.log("Все чаты загружены с последними сообщениями");
+                            renderChatList();
+                            
+                            // ОТКРЫВАЕМ СОХРАНЕННЫЙ ЧАТ (как было раньше)
+                            const savedChatId = localStorage.getItem('LAST_OPENED_CHAT');
+                            let chatToOpen = null;
+                            
+                            if (savedChatId && chatsData[savedChatId]) {
+                                chatToOpen = savedChatId;
+                                console.log("Восстанавливаем сохраненный чат:", savedChatId);
+                            } else {
+                                // Если нет сохраненного, открываем первый чат
+                                chatToOpen = Object.keys(chatsData)[0];
+                            }
+                            
+                            if (chatToOpen) {
+                                setTimeout(() => loadChat(chatToOpen), 100);
+                            }
+                        });
                 } else {
                     showNoChatsMessage();
                 }
@@ -237,7 +391,7 @@
                 showNoChatsMessage();
             });
     }
-
+    
     // ======================= ЗАГРУЗКА ЧАТА =======================
     function loadChat(chatId) {
         const chat = chatsData[chatId];
@@ -246,30 +400,50 @@
         currentChatId = chatId;
         localStorage.setItem('LAST_OPENED_CHAT', chatId);
         
-        // УСТАНАВЛИВАЕМ ОДИН И ТОТ ЖЕ ЦВЕТ В ЗАГОЛОВКЕ
+        currentPartnerId = null;
+        
+        if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+        }
+        
         document.getElementById('current-avatar').textContent = chat.avatar;
         document.getElementById('current-avatar').style.backgroundColor = chat.avatarColor || '#0088cc';
-        
         document.getElementById('current-chat-name').textContent = chat.name;
         document.getElementById('inputArea').style.display = 'block';
         document.getElementById('online-status').textContent = 'загружаем...';
+        document.getElementById('online-status').style.color = '#7f8c8d';
+        
+        const deleteBtn = document.getElementById('deleteChatBtn')
+        deleteBtn.disabled = false;
+        deleteBtn.title = `Удалить чат "${chat.name}" для всех участников`;
+
+        getChatPartnerId(chat.serverId)
+            .then(partnerId => {
+                if (partnerId) {
+                    currentPartnerId = partnerId;
+                    updatePartnerStatus();
+                    statusCheckInterval = setInterval(updatePartnerStatus, 10000);
+                } else {
+                    document.getElementById('online-status').textContent = 
+                        `сообщений: ${chat.messages.length}`;
+                }
+            })
+            .catch(error => {
+                console.error("Ошибка получения partnerId:", error);
+                document.getElementById('online-status').textContent = 
+                    `сообщений: ${chat.messages.length}`;
+            });
         
         console.log(`Загружаем сообщения для чата ID: ${chat.serverId}`);
         
-        apiRequest(`/chat/${chat.serverId}/messages?limit=50&offset=0`)
+        apiRequest(`/chat/${chat.serverId}/messages?limit=50`)
             .then(response => {
-                console.log("Ответ от сервера:", response);
-                
                 if (response && response.messages) {
-                    console.log(`Сообщений: ${response.messages.length}`);
-                    
                     chat.messages = response.messages.map(m => {
                         const senderName = m.sender ? 
                             (m.sender.first_name || m.sender.short_name || "Пользователь") : 
                             "Неизвестно";
                         
-                        // ДЛЯ СООБЩЕНИЙ ДРУГИХ ЛЮДЕЙ - ИСПОЛЬЗУЕМ ЦВЕТ ЧАТА
-                        // (если это групповой чат, лучше генерировать цвет по имени отправителя)
                         const avatarColor = chat.avatarColor || getAvatarColor(senderName);
                         
                         return {
@@ -279,17 +453,32 @@
                             fromMe: m.sender && m.sender.id === currentUserId,
                             senderName: senderName,
                             avatarColor: avatarColor,
-                            timestamp: m.timestamp,  // Сохраняем полную дату отправки
-                            readAt: m.read_at,      // Когда прочитано (null если не прочитано)
-                            deliveredAt: m.delivered_at  // Когда доставлено
+                            timestamp: m.timestamp,
+                            readAt: m.read_at,
+                            deliveredAt: m.delivered_at
                         };
                     });
                     
-                    document.getElementById('online-status').textContent = `сообщений: ${chat.messages.length}`;
+                    if (chat.messages.length > 0) {
+                        const lastMsg = chat.messages[chat.messages.length - 1];
+                        chat.last_message = lastMsg.text.length > 30 ? 
+                            lastMsg.text.substring(0, 30) + "..." : lastMsg.text;
+                        
+                        if (lastMsg.timestamp) {
+                            chat.last_time = formatChatTime(lastMsg.timestamp);
+                            chat.last_message_raw = lastMsg.timestamp;
+                        }
+                    }
+                    
+                    if (!currentPartnerId) {
+                        document.getElementById('online-status').textContent = 
+                            `сообщений: ${chat.messages.length}`;
+                    }
                 } else {
-                    console.warn("Нет сообщений или неверный формат ответа:", response);
                     chat.messages = [];
-                    document.getElementById('online-status').textContent = 'нет сообщений';
+                    if (!currentPartnerId) {
+                        document.getElementById('online-status').textContent = 'нет сообщений';
+                    }
                 }
                 
                 renderMessages(chatId);
@@ -297,73 +486,36 @@
             })
             .catch(error => {
                 console.error(`Ошибка загрузки сообщений:`, error);
-
-                console.log("Пробуем без offset...");
-                apiRequest(`/chat/${chat.serverId}/messages?limit=50`)
-                    .then(response => {
-                        console.log("Ответ без offset:", response);
-                        if (response && response.messages) {
-                            chat.messages = response.messages.map(m => ({
-                                id: m.id || Date.now(),
-                                text: m.message || "",
-                                time: m.timestamp ? formatTime(m.timestamp) : '--:--',
-                                fromMe: m.sender && m.sender.id === currentUserId
-                            }));
-                            document.getElementById('online-status').textContent = `сообщений: ${chat.messages.length}`;
-                        } else {
-                            chat.messages = [];
-                            document.getElementById('online-status').textContent = 'нет сообщений';
-                        }
-                        renderMessages(chatId);
-                        renderChatList();
-                    })
-                    .catch(error2 => {
-                        console.error("И вторая попытка не удалась:", error2);
-                        chat.messages = [];
-                        document.getElementById('online-status').textContent = 'ошибка загрузки';
-                        renderMessages(chatId);
-                        renderChatList();
-                    });
+                chat.messages = [];
+                if (!currentPartnerId) {
+                    document.getElementById('online-status').textContent = 'ошибка загрузки';
+                }
+                renderMessages(chatId);
+                renderChatList();
             });
-    }
 
-    // Добавьте функцию форматирования времени
-    function formatTime(timestamp) {
-        try {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-        } catch (e) {
-            return '--:--';
-        }
     }
 
     // ======================= ПОИСК ПОЛЬЗОВАТЕЛЕЙ =======================
+    let searchTimer = null;
 
-    let searchTimer = null; // Таймер для задержки поиска
-
-    // Ищем пользователей когда печатают в поиске
     function searchUsers(query) {
         const chatList = document.getElementById('chatList');
         
-        // Если поиск пустой - показываем обычные чаты
         if (!query.trim()) {
             renderChatList();
             return;
         }
         
-        // Показываем что ищем
         chatList.innerHTML = '<div class="search-loading">Ищем...</div>';
         
-        // Запрашиваем у бэкенда
         apiRequest(`/search/users?query=${encodeURIComponent(query)}`)
             .then(users => {
-                // Если ничего не нашли
                 if (!users || users.length === 0) {
                     chatList.innerHTML = '<div class="search-no-results">Ничего не нашли</div>';
                     return;
                 }
                 
-                // Убираем себя из результатов
                 const otherUsers = users.filter(user => user.id !== currentUserId);
                 
                 if (otherUsers.length === 0) {
@@ -371,7 +523,6 @@
                     return;
                 }
                 
-                // Показываем найденных
                 showFoundUsers(otherUsers);
             })
             .catch(error => {
@@ -380,34 +531,28 @@
             });
     }
 
-    // Показываем найденных пользователей
     function showFoundUsers(users) {
         const chatList = document.getElementById('chatList');
         chatList.innerHTML = '';
         
         users.forEach(user => {
-            // Берем данные пользователя
             const userName = user.first_name || user.short_name || "Пользователь";
             const userPhone = user.phone || "Телефон не указан";
             const userAvatar = userName.charAt(0).toUpperCase();
             const avatarColor = getAvatarColor(userName);
             
-            // Проверяем, есть ли уже чат с этим человеком
             let existingChat = null;
             for (const chatId in chatsData) {
                 const chat = chatsData[chatId];
-                // Если имя чата похоже на имя пользователя
                 if (chat.name === userName || chat.name.includes(user.short_name)) {
                     existingChat = chat;
                     break;
                 }
             }
             
-            // Создаем элемент для пользователя
             const userElement = document.createElement('div');
             userElement.className = 'user-search-result';
             
-            // Если чат уже есть - стрелка, если нет - плюсик
             const buttonSymbol = existingChat ? '→' : '+';
             const buttonClass = existingChat ? 'added' : '';
             const buttonTitle = existingChat ? 'Открыть существующий чат' : 'Создать новый чат';
@@ -433,31 +578,25 @@
         });
     }
 
-    // Обрабатываем клик по кнопке (+ или →)
     function handleUserButtonClick(userId, userName, hasChat) {
         if (hasChat) {
-            // Если чат уже есть - ищем и открываем его
             for (const chatId in chatsData) {
                 const chat = chatsData[chatId];
                 if (chat.name === userName) {
                     loadChat(chat.id);
-                    // Очищаем поиск
                     clearSearch();
                     return;
                 }
             }
         } else {
-            // Если чата нет - создаем новый
             createNewChatWithUser(userId, userName);
         }
     }
 
-    // Создаем новый чат с пользователем
     function createNewChatWithUser(userId, userName) {
         const chatList = document.getElementById('chatList');
         chatList.innerHTML = '<div class="search-loading">Создаем чат...</div>';
         
-        // Отправляем запрос на создание чата
         apiRequest('/chat/create_chat', {
             method: 'POST',
             body: JSON.stringify({
@@ -467,7 +606,6 @@
         .then(newChat => {
             console.log("Создан чат:", newChat);
             
-            // Добавляем чат в наш список
             const chatId = newChat.id;
             const chatName = newChat.title || userName;
             const avatarColor = getAvatarColor(chatName);
@@ -483,13 +621,9 @@
                 avatarColor: avatarColor
             };
             
-            // Очищаем поиск
             clearSearch();
-            
-            // Показываем обычные чаты
             renderChatList();
             
-            // Через полсекунды открываем созданный чат
             setTimeout(() => {
                 loadChat(chatId);
             }, 500);
@@ -502,40 +636,32 @@
         });
     }
 
-    // Очищаем поиск
     function clearSearch() {
         document.getElementById('universalSearchInput').value = '';
         document.getElementById('clearUniversalSearch').style.display = 'none';
     }
-
-       
-    // Настраиваем обработчики для поиска
+    
     function setupSearchListeners() {
         const searchInput = document.getElementById('universalSearchInput');
         const clearBtn = document.getElementById('clearUniversalSearch');
         
-        // Когда печатают в поиске
         searchInput.addEventListener('input', (e) => {
             const hasText = e.target.value.length > 0;
             clearBtn.style.display = hasText ? 'block' : 'none';
             
-            // Очищаем старый таймер
             clearTimeout(searchTimer);
             
-            // Ждем 400мс после последней буквы
             searchTimer = setTimeout(() => {
                 searchUsers(e.target.value);
             }, 400);
         });
         
-        // Кнопка очистки
         clearBtn.addEventListener('click', () => {
             searchInput.value = '';
             clearBtn.style.display = 'none';
-            renderChatList(); // Показываем обычные чаты
+            renderChatList();
         });
         
-        // Когда нажимают на кнопку у пользователя
         document.getElementById('chatList').addEventListener('click', (e) => {
             if (e.target.classList.contains('user-search-add-btn')) {
                 const userId = e.target.dataset.userId;
@@ -547,7 +673,6 @@
         });
     }
 
-    // ======================= ОСТАЛЬНЫЕ ФУНКЦИИ (оставьте как есть) =======================
     function showNoChatsMessage() {
         const chatList = document.getElementById('chatList');
         chatList.innerHTML = `
@@ -558,17 +683,20 @@
                 </p>
             </div>
         `;
-    }
 
+        document.getElementById('deleteChatBtn').disabled = true;
+    }
+    
     function renderChatList() {
         const chatList = document.getElementById('chatList');
         const searchInput = document.getElementById('universalSearchInput');
         
-        // Если есть текст в поиске - не показываем обычные чаты
+        // Если идет поиск - не показываем обычные чаты
         if (searchInput && searchInput.value.trim()) {
             return;
         }
         
+        // Если нет чатов
         if (Object.keys(chatsData).length === 0) {
             showNoChatsMessage();
             return;
@@ -576,10 +704,39 @@
         
         chatList.innerHTML = '';
         
-        Object.values(chatsData).forEach(chat => {
+        // ВАЖНО: СОРТИРОВКА - НОВЫЕ ЧАТЫ ВВЕРХУ
+        const sortedChats = Object.values(chatsData).sort((a, b) => {
+            // Время последнего сообщения в чате A
+            const timeA = a.last_message_raw ? new Date(a.last_message_raw).getTime() : 0;
+            // Время последнего сообщения в чате B
+            const timeB = b.last_message_raw ? new Date(b.last_message_raw).getTime() : 0;
+            
+            // Если оба без сообщений - новые чаты вверху
+            if (!timeA && !timeB) {
+                return b.id - a.id; // Чат с большим ID (новый) вверху
+            }
+            
+            // Если один без сообщений - он внизу
+            if (!timeA) return 1;
+            if (!timeB) return -1;
+            
+            // СОРТИРОВКА: БОЛЬШЕЕ время (НОВОЕ) -> ВВЕРХУ
+            // МЕНЬШЕЕ время (СТАРОЕ) -> ВНИЗУ
+            return timeB - timeA;
+        });
+        
+        // Показываем отсортированные чаты
+        sortedChats.forEach(chat => {
             const div = document.createElement('div');
             div.className = 'chat-item' + (chat.id === currentChatId ? ' active' : '');
             div.dataset.chatId = chat.id;
+            
+            // Время последнего сообщения
+            let timeDisplay = 'нет сообщений';
+            if (chat.last_message_raw) {
+                timeDisplay = formatChatTime(chat.last_message_raw);
+            }
+            
             div.innerHTML = `
                 <div class="avatar" style="background-color: ${chat.avatarColor || '#0088cc'}">
                     ${chat.avatar}
@@ -587,7 +744,9 @@
                 <div class="chat-info">
                     <div class="chat-header">
                         <span class="chat-name">${chat.name}</span>
-                        <span class="time">${chat.last_time}</span>
+                        <span class="time">
+                            ${timeDisplay}
+                        </span>
                     </div>
                     <div class="last-message">
                         <span>${chat.last_message || 'Нет сообщений'}</span>
@@ -595,6 +754,7 @@
                 </div>
             `;
             
+            // При клике на чат - открываем его
             div.addEventListener('click', () => {
                 if (chat.id !== currentChatId) {
                     loadChat(chat.id);
@@ -604,7 +764,7 @@
             chatList.appendChild(div);
         });
     }
- 
+    
     function renderMessages(chatId) {
         const chat = chatsData[chatId];
         const container = document.getElementById('messages-container');
@@ -616,39 +776,51 @@
         
         container.innerHTML = '';
         
-        // Проверяем, это личный чат или групповой
-        const isPersonalChat = chat.name && !chat.name.includes('Чат'); // или другая логика
+        const isPersonalChat = chat.name && !chat.name.includes('Чат');
+        let currentDate = null;
         
         chat.messages.forEach(msg => {
+            // Проверяем дату сообщения
+            if (msg.timestamp) {
+                const messageDate = new Date(msg.timestamp);
+                const dateString = formatMessageDate(messageDate);
+                
+                // Если дата изменилась - добавляем разделитель
+                if (dateString !== currentDate) {
+                    currentDate = dateString;
+                    
+                    const dateDivider = document.createElement('div');
+                    dateDivider.className = 'date-divider';
+                    dateDivider.innerHTML = `<span>${dateString}</span>`;
+                    container.appendChild(dateDivider);
+                }
+            }
+            
             const div = document.createElement('div');
             div.className = `message ${msg.fromMe ? 'me' : 'friend'}`;
             div.dataset.messageId = msg.id;
             
-            // Определяем статус сообщения (только для моих сообщений)
-            let statusIcon = '−';  // По умолчанию минус (не прочитано)
+            let statusIcon = '−';
             let statusTitle = 'Не прочитано';
             
             if (msg.fromMe) {
                 if (msg.readAt) {
-                    statusIcon = '+';  // Плюс если прочитано
+                    statusIcon = '+';
                     statusTitle = `Прочитано: ${formatDateTime(msg.readAt)}`;
                 }
-                // Если deliveredAt не интересует, пропускаем его
             }
             
             if (msg.fromMe) {
-                // Твои сообщения
                 div.innerHTML = `
                     <div class="message-content">
                         <div class="message-text">${msg.text || ""}</div>
                         <div class="message-time">
                             <span class="message-status" title="${statusTitle}">${statusIcon}</span>
-                            ${msg.time}
+                            ${formatTime(msg.timestamp)}
                         </div>
                     </div>
                 `;
                 
-                // Добавляем обработчик клика на статус
                 const statusElement = div.querySelector('.message-status');
                 if (statusElement) {
                     statusElement.addEventListener('click', (e) => {
@@ -657,22 +829,19 @@
                     });
                 }
             } else {
-                // Сообщения других
                 if (isPersonalChat) {
-                    // Личный чат - без имени и аватара
                     div.innerHTML = `
                         <div class="message-content">
                             <div class="message-text">${msg.text || ""}</div>
-                            <div class="message-time">${msg.time}</div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
                         </div>
                     `;
                 } else {
-                    // Групповой чат - с именем отправителя
                     div.innerHTML = `
                         <div class="message-content">
                             <div class="message-sender">${msg.senderName || "Неизвестно"}</div>
                             <div class="message-text">${msg.text || ""}</div>
-                            <div class="message-time">${msg.time}</div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
                         </div>
                     `;
                 }
@@ -686,18 +855,16 @@
         }, 100);
     }
 
-    // Функция форматирования даты-времени
+    // ======================= ФУНКЦИИ ФОРМАТИРОВАНИЯ ВРЕМЕНИ =======================
     function formatTime(timestamp) {
         try {
-            // Если время пришло без 'Z' (не UTC), добавляем его
             let timeStr = timestamp;
             if (timeStr && !timeStr.endsWith('Z') && timeStr.includes('T')) {
-                timeStr += 'Z'; // Указываем что это UTC
+                timeStr += 'Z';
             }
             
             const date = new Date(timeStr);
             
-            // Проверяем валидность даты
             if (isNaN(date.getTime())) {
                 throw new Error('Invalid date');
             }
@@ -713,12 +880,67 @@
         }
     }
 
+    function formatChatTime(timestamp) {
+        if (!timestamp) return '';
+        
+        try {
+            let timeStr = timestamp;
+            if (timeStr && !timeStr.endsWith('Z') && timeStr.includes('T')) {
+                timeStr += 'Z';
+            }
+            
+            const date = new Date(timeStr);
+            const now = new Date();
+            
+            // Сегодня - показываем время (14:30)
+            if (date.toDateString() === now.toDateString()) {
+                return date.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            }
+            
+            // Вчера
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (date.toDateString() === yesterday.toDateString()) {
+                return 'вчера';
+            }
+            
+            // На этой неделе
+            const weekAgo = new Date(now);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            if (date > weekAgo) {
+                const days = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+                return days[date.getDay()];
+            }
+            
+            // Старее недели - дата
+            return date.toLocaleDateString([], {
+                day: '2-digit',
+                month: '2-digit'
+            });
+        } catch (e) {
+            return '';
+        }
+    }
+
     function formatDateTime(dateString) {
         if (!dateString) return 'неизвестно';
         
         try {
-            const date = new Date(dateString);
-            // Полная дата и время в часовом поясе пользователя
+            let timeStr = dateString;
+            if (timeStr && !timeStr.endsWith('Z') && timeStr.includes('T')) {
+                timeStr += 'Z';
+            }
+            
+            const date = new Date(timeStr);
+            
+            if (isNaN(date.getTime())) {
+                throw new Error('Invalid date');
+            }
+            
             return date.toLocaleString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit', 
@@ -729,32 +951,120 @@
                 hour12: false
             });
         } catch (e) {
+            console.error('Ошибка полной даты:', dateString, e);
             return 'ошибка даты';
         }
     }
 
-    // Прокрутка вниз
-    function scrollToBottom() {
-        const container = document.getElementById('messages-container');
-        if (container) {
-            setTimeout(() => {
-                container.scrollTop = container.scrollHeight;
-            }, 50);
-        }
-    }
-
-    // Проверка внизу ли мы
-    function isAtBottom() {
-        const container = document.getElementById('messages-container');
-        if (!container) return true;
+    // ======================= ФОРМАТИРОВАНИЕ ДАТЫ ДЛЯ СООБЩЕНИЙ =======================
+    function formatMessageDate(date) {
+        const now = new Date();
         
-        // На 100 пикселей от низа считаем что "внизу"
-        const threshold = 100;
-        const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
-        return distance <= threshold;
+        const months = [
+            'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+            'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+        ];
+        
+        const day = date.getDate();
+        const month = months[date.getMonth()];
+        
+        // Если сообщение в текущем году - только число и месяц
+        if (date.getFullYear() === now.getFullYear()) {
+            return `${day} ${month}`;
+        }
+        
+        // Если сообщение в другом году - добавляем год
+        return `${day} ${month} ${date.getFullYear()}`;
+    }
+        
+    // ============================ УДАЛЕНИЕ ЧАТА ==============================
+    function deleteCurrentChat() {
+        if (!currentChatId) {
+            alert("Сначала выберите чат для удаления");
+            return;
+        }
+        
+        const chat = chatsData[currentChatId];
+        if (!chat) {
+            alert("Чат не найден");
+            return;
+        }
+        
+        if (!confirm(`Удалить чат "${chat.name}"?\n\nЭто удалит чат для вас и вашего собеседника.\nВсе сообщения будут удалены безвозвратно.`)) {
+            return;
+        }
+        
+        const statusEl = document.getElementById('online-status');
+        const originalText = statusEl.textContent;
+        statusEl.textContent = 'Удаляем...';
+        
+        const deleteBtn = document.getElementById('deleteChatBtn');
+        const originalBtnText = deleteBtn.textContent;
+        deleteBtn.textContent = 'Удаление...';
+        deleteBtn.disabled = true;
+        
+        apiRequest(`/chat/${currentChatId}/delete_for_all`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            console.log('Ответ сервера при удалении:', response);
+            
+            if (response && response.deleted) {
+                alert(`Чат "${chat.name}" удалён${response.deleted_for_all ? ' для всех участников' : ''}`);
+                
+                delete chatsData[currentChatId];
+                
+                currentChatId = null;
+                currentPartnerId = null;
+                localStorage.removeItem('LAST_OPENED_CHAT');
+                
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                    statusCheckInterval = null;
+                }
+                
+                document.getElementById('current-chat-name').textContent = 'Выберите чат';
+                document.getElementById('current-avatar').textContent = '?';
+                document.getElementById('current-avatar').style.backgroundColor = '';
+                document.getElementById('online-status').textContent = '---';
+                document.getElementById('inputArea').style.display = 'none';
+                
+                const messagesContainer = document.getElementById('messages-container');
+                messagesContainer.innerHTML = 
+                    '<div class="welcome-message"><p>Выберите чат из списка слева</p></div>';
+                
+                renderChatList();
+                
+                if (Object.keys(chatsData).length === 0) {
+                    showNoChatsMessage();
+                }
+                
+            } else {
+                alert("Не удалось удалить чат");
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка при удалении чата:', error);
+            
+            let errorMessage = 'Не удалось удалить чат';
+            
+            if (error.message.includes('404')) {
+                errorMessage = 'Чат не найден';
+            } else if (error.message.includes('403')) {
+                errorMessage = 'У вас нет прав для удаления этого чата';
+            } else if (error.message.includes('400')) {
+                errorMessage = 'Можно удалять только личные чаты';
+            }
+            
+            alert(errorMessage);
+        })
+        .finally(() => {
+            statusEl.textContent = originalText;
+            deleteBtn.textContent = originalBtnText;
+            deleteBtn.disabled = true;
+        });
     }
     
-    // Функция показа деталей сообщения
     function showMessageDetails(message) {
         let details = '';
         
@@ -768,7 +1078,6 @@
             details += `<p><strong>Прочитано:</strong> еще не прочитано</p>`;
         }
         
-        // Создаем модальное окно
         const modal = document.createElement('div');
         modal.className = 'message-details-modal';
         modal.innerHTML = `
@@ -790,7 +1099,6 @@
         
         document.body.appendChild(modal);
         
-        // Закрытие по клику на крестик или вне окна
         modal.querySelector('.close-modal').addEventListener('click', () => {
             modal.remove();
         });
@@ -814,38 +1122,50 @@
         if (!text) return;
         
         const chat = chatsData[currentChatId];
+        const now = new Date();
+        const nowISO = now.toISOString();
         
-        // Локально добавляем сообщение
         const newMsg = {
             id: Date.now(),
             text: text,
-            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
-            fromMe: true
+            time: formatTime(nowISO),
+            fromMe: true,
+            timestamp: nowISO,
+            readAt: null,
+            deliveredAt: null,
+            senderName: currentUserName
         };
         
         chat.messages.push(newMsg);
         chat.last_message = text.length > 30 ? text.substring(0, 30) + "..." : text;
-        chat.last_time = newMsg.time;
+        chat.last_time = formatChatTime(nowISO);
+        chat.last_message_raw = nowISO;
         
         renderMessages(currentChatId);
         renderChatList();
         input.value = '';
         
-        // отправляем правильные данные
         apiRequest('/messages/by_user', {
             method: 'POST',
             body: JSON.stringify({ 
-                id_query: String(chat.serverId),  // Бэкенд ожидает "id_query" как строку
-                content: text                     // Бэкенд ожидает "content"
+                id_query: String(chat.serverId),
+                content: text
             })
         })
         .then(response => {
             if (response) {
                 console.log("Сообщение отправлено на сервер:", response);
                 
-                // Обновляем ID сообщения с сервера (если нужно)
                 if (response.id) {
                     newMsg.id = response.id;
+                }
+                if (response.timestamp) {
+                    newMsg.timestamp = response.timestamp;
+                    newMsg.time = formatTime(response.timestamp);
+                    chat.last_time = formatChatTime(response.timestamp);
+                    chat.last_message_raw = response.timestamp;
+                    
+                    renderChatList();
                 }
             }
         })
@@ -854,14 +1174,19 @@
             alert("Не удалось отправить сообщение. Проверьте консоль.");
         });
     }
-
+    
     function logout() {
         if (confirm("Вы уверены, что хотите выйти?")) {
+            updateMyStatus(false);
+            
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            
             localStorage.clear();
             window.location.href = "login.html";
         }
     }
-
 
     function setupEventListeners() {
         setupSearchListeners();
@@ -874,9 +1199,8 @@
             }
         });
         
-    
-        
         document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('deleteChatBtn').addEventListener('click', deleteCurrentChat);
     }
 
     // ======================= ЗАПУСК =======================
