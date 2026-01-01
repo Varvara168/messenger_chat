@@ -317,7 +317,6 @@
                 chatsData = {};
                 
                 if (Array.isArray(chats) && chats.length > 0) {
-                    // СОРТИРУЙ ЧАТЫ ПОСЛЕ ЗАГРУЗКИ ВСЕХ ПОСЛЕДНИХ СООБЩЕНИЙ
                     const loadPromises = chats.map(chat => {
                         const chatId = chat.id;
                         const chatName = chat.title || `Чат ${chatId}`;
@@ -336,7 +335,7 @@
                             avatarColor: avatarColor
                         };
                         
-                        // ЕСЛИ УЖЕ ЕСТЬ last_message из ответа сервера - используй его
+                        // ЕСЛИ УЖЕ ЕСТЬ last_message из ответа сервера
                         if (chat.last_message && chat.last_message_timestamp) {
                             chatsData[chatId].last_message = chat.last_message;
                             chatsData[chatId].last_message_raw = chat.last_message_timestamp;
@@ -375,7 +374,7 @@
                         .then(() => {
                             console.log("Все чаты загружены с последними сообщениями");
                             
-                            // ТЕПЕРЬ СОРТИРУЕМ чаты по времени последнего сообщения
+                            // СОРТИРУЕМ чаты по времени последнего сообщения
                             const sortedChatIds = Object.keys(chatsData).sort((a, b) => {
                                 const timeA = chatsData[a].last_message_raw ? 
                                     new Date(chatsData[a].last_message_raw).getTime() : 0;
@@ -738,24 +737,17 @@
         
         chatList.innerHTML = '';
         
-        // ВАЖНО: СОРТИРОВКА - НОВЫЕ ЧАТЫ ВВЕРХУ
         const sortedChats = Object.values(chatsData).sort((a, b) => {
-            // Время последнего сообщения в чате A
             const timeA = a.last_message_raw ? new Date(a.last_message_raw).getTime() : 0;
-            // Время последнего сообщения в чате B
-            const timeB = b.last_message_raw ? new Date(b.last_message_raw).getTime() : 0;
-            
-            // Если оба без сообщений - новые чаты вверху
+            const timeB = b.last_message_raw ? new Date(b.last_message_raw).getTime() :
+                
             if (!timeA && !timeB) {
                 return b.id - a.id; // Чат с большим ID (новый) вверху
             }
             
-            // Если один без сообщений - он внизу
             if (!timeA) return 1;
             if (!timeB) return -1;
             
-            // СОРТИРОВКА: БОЛЬШЕЕ время (НОВОЕ) -> ВВЕРХУ
-            // МЕНЬШЕЕ время (СТАРОЕ) -> ВНИЗУ
             return timeB - timeA;
         });
         
