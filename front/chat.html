@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат</title>
-    <link rel="stylesheet" href="chat.css">
+    <link rel="stylesheet" href="/static/chat.css">
 </head>
 <body>
     <div class="loading" id="loading">Загрузка...</div>
@@ -61,7 +61,7 @@
     </div>
 
     <script>
-    const API_BASE = "http://localhost:8000";
+    const API_BASE = "";
     const loading = document.getElementById('loading');
     const chatApp = document.getElementById('chatApp');
 
@@ -115,7 +115,7 @@
                 if (response.status === 401) {
                     localStorage.clear();
                     alert("Сессия истекла. Пожалуйста, войдите снова.");
-                    window.location.href = "login.html";
+                    window.location.href = "/";
                     return null;
                 }
                 
@@ -268,7 +268,7 @@
         const token = localStorage.getItem("ACCESS_TOKEN");
         if (!token) {
             alert("Вы не авторизованы. Пожалуйста, войдите.");
-            window.location.href = "login.html";
+            window.location.href = "/";
             return;
         }
         
@@ -301,7 +301,7 @@
             .catch(error => {
                 console.error("Ошибка инициализации:", error);
                 alert("Ошибка авторизации. Пожалуйста, войдите снова.");
-                window.location.href = "login.html";
+                window.location.href = "/";
             });
     }
 
@@ -317,7 +317,7 @@
                 chatsData = {};
                 
                 if (Array.isArray(chats) && chats.length > 0) {
-                    // Массив промисов для загрузки последних сообщений
+                    // СОРТИРУЙ ЧАТЫ ПОСЛЕ ЗАГРУЗКИ ВСЕХ ПОСЛЕДНИХ СООБЩЕНИЙ
                     const loadPromises = chats.map(chat => {
                         const chatId = chat.id;
                         const chatName = chat.title || `Чат ${chatId}`;
@@ -336,6 +336,14 @@
                             avatarColor: avatarColor
                         };
                         
+                        // ЕСЛИ УЖЕ ЕСТЬ last_message из ответа сервера - используй его
+                        if (chat.last_message && chat.last_message_timestamp) {
+                            chatsData[chatId].last_message = chat.last_message;
+                            chatsData[chatId].last_message_raw = chat.last_message_timestamp;
+                            chatsData[chatId].last_time = formatChatTime(chat.last_message_timestamp);
+                            return Promise.resolve(); // Уже есть данные
+                        }
+                        
                         // Загружаем последние сообщения для этого чата
                         return apiRequest(`/chat/${chatId}/messages?limit=1`)
                             .then(response => {
@@ -351,12 +359,14 @@
                                 } else {
                                     // Если нет сообщений
                                     chatsData[chatId].last_time = 'нет сообщений';
+                                    chatsData[chatId].last_message_raw = null;
                                     console.log(`Чат ${chatId}: нет сообщений`);
                                 }
                             })
                             .catch(error => {
                                 console.error(`Ошибка загрузки сообщений для чата ${chatId}:`, error);
                                 chatsData[chatId].last_time = 'ошибка';
+                                chatsData[chatId].last_message_raw = null;
                             });
                     });
                     
@@ -364,9 +374,28 @@
                     return Promise.all(loadPromises)
                         .then(() => {
                             console.log("Все чаты загружены с последними сообщениями");
+                            
+                            // ТЕПЕРЬ СОРТИРУЕМ чаты по времени последнего сообщения
+                            const sortedChatIds = Object.keys(chatsData).sort((a, b) => {
+                                const timeA = chatsData[a].last_message_raw ? 
+                                    new Date(chatsData[a].last_message_raw).getTime() : 0;
+                                const timeB = chatsData[b].last_message_raw ? 
+                                    new Date(chatsData[b].last_message_raw).getTime() : 0;
+                                
+                                // Новые (большее время) вверху
+                                return timeB - timeA;
+                            });
+                            
+                            // Пересоздаем chatsData в правильном порядке
+                            const sortedChatsData = {};
+                            sortedChatIds.forEach(id => {
+                                sortedChatsData[id] = chatsData[id];
+                            });
+                            chatsData = sortedChatsData;
+                            
                             renderChatList();
                             
-                            // ОТКРЫВАЕМ СОХРАНЕННЫЙ ЧАТ (как было раньше)
+                            // Открываем сохраненный чат
                             const savedChatId = localStorage.getItem('LAST_OPENED_CHAT');
                             let chatToOpen = null;
                             
@@ -391,11 +420,16 @@
                 showNoChatsMessage();
             });
     }
-    
+
     // ======================= ЗАГРУЗКА ЧАТА =======================
     function loadChat(chatId) {
         const chat = chatsData[chatId];
         if (!chat) return;
+        
+        console.log("=== ЗАГРУЗКА ЧАТА ===");
+        console.log("Чат:", chat.name);
+        console.log("Текущее время в last_time:", chat.last_time);
+        console.log("Текущее raw время:", chat.last_message_raw);
         
         currentChatId = chatId;
         localStorage.setItem('LAST_OPENED_CHAT', chatId);
@@ -1184,7 +1218,7 @@
             }
             
             localStorage.clear();
-            window.location.href = "login.html";
+            window.location.href = "/";
         }
     }
 

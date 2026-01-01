@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат</title>
-    <link rel="stylesheet" href="registr.css">
+    <link rel="stylesheet" href="/static/register.css">
     <!-- <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'> -->
 </head>
 
@@ -31,13 +31,13 @@
             <button type="submit" class="btn">Зарегистрироваться</button>
             
             <div class="login-link">
-                <p>У вас есть аккаунт? <a href="login.html">Войти</a></p>
+                <p>У вас есть аккаунт? <a href="/">Войти</a></p>
 
         </form>
     </div>
     <script>
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
-        e.preventDefault(); // не перезагружать страницу
+        e.preventDefault();
 
         const form = e.target;
         const data = {
@@ -49,19 +49,20 @@
         };
 
         try {
-            const res = await fetch("http://localhost:8000/auth/register", {
+            // ИСПОЛЬЗУЙ ОТНОСИТЕЛЬНЫЙ ПУТЬ!
+            const res = await fetch("/auth/register", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify(data),
-                credentials: "include" // если используешь куки
+                credentials: "include"
             });
 
             const result = await res.json();
             if (res.ok) {
                 alert(result.message);
-                window.location.href = "login.html"; // редирект на логин
+                window.location.href = "/"; // редирект на логин
             } else {
                 alert(result.detail);
             }
