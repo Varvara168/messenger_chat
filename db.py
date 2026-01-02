@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 # правильная строка подключения
 engine = create_engine(
-    "postgresql+psycopg2://messenger_user:password@localhost:5432/messenger_db",
+    "postgresql+psycopg2:db",
     echo=True
 )
 
