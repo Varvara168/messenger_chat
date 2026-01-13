@@ -20,7 +20,7 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     # Добавь свой ngrok домен
-    "https://896fbc8174ee.ngrok-free.app",  # ← ТВОЙ NGROK URL
+    "https://6b50c0fc6429.ngrok-free.app",  # ← ТВОЙ NGROK URL
     # И разреши все для теста
     "*"  
 ]
@@ -55,3 +55,4 @@ def serve_chat():
 @app.get("/register")
 def serve_register():
     return FileResponse("front/register.html")
+
