@@ -19,10 +19,7 @@ origins = [
     "http://127.0.0.1:8000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    # Добавь свой ngrok домен
-    "https://6b50c0fc6429.ngrok-free.app",  # ← ТВОЙ NGROK URL
-    # И разреши все для теста
-    "*"  
+    "http://87.228.36.68", 
 ]
 
 app.add_middleware(
