@@ -18,13 +18,11 @@ services:
       - dev
 
   back:
-    build:
-      context: ./back
+    build: ./back
     networks:
       - dev
 
   front:
-    build:
-      context: ./front
+    build: ./front
     networks:
       - dev
