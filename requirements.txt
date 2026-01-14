@@ -4,3 +4,4 @@ sqlalchemy
 passlib
 authx
 pydantic
+psycopg2-binary
