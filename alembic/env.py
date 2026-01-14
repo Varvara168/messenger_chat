@@ -4,7 +4,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from db import Base  # Импортируйте ваш базовый класс модели здесь
 
-from back.models import *  # Импортируйте все ваши модели здесь
+from back.models.users import User  # Импортируйте ваши модели здесь
+from back.models.chats import Chat  # Импортируйте ваши модели здесь
+from back.models.messages import Message  # Импортируйте ваши модели здесь
+from back.models.chat_members import ChatMembers  # Импортируйте ваши модели здесь
+from back.models.status import UserStatus  # Импортируйте ваши модели здесь
 
 from alembic import context
 
