@@ -1,8 +1,11 @@
 FROM python:3.11.9-slim
 
-COPY requirements.txt /messenger/requirements.txt
-RUN pip install -r /messenger/requirements.txt
+WORKDIR /messenger/back
 
-COPY . . /messenger/back
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "/messenger/main.py"]
+COPY . .
+
+EXPOSE 8000
+CMD ["python", "/messenger/back/main.py"]

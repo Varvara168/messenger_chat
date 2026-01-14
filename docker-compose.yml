@@ -1,4 +1,6 @@
-networks:
+version: "3.9"
+
+networks: 
   dev:
 
 services:
@@ -8,24 +10,21 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - back
       - front
-    
     networks:
       - dev
 
   back:
-    build: 
-    context: ./back
-
+    build:
+      context: ./back
     networks:
       - dev
 
   front:
-    build: 
+    build:
       context: ./front
-    
     networks:
       - dev
