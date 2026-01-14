@@ -46,7 +46,9 @@ app.mount("/static", StaticFiles(directory="front"), name="static")
 
 @app.on_event("startup")
 def startup():
+    print("TABLES:", Base.metadata.tables.keys())
     Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def serve_login():
