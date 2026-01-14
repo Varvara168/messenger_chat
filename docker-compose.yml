@@ -10,7 +10,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - "./nginx.conf:/etc/nginx/nginx.conf"
     depends_on:
       - back
       - front
@@ -19,7 +19,8 @@ services:
 
   back:
     build:
-      context: ./back
+      context: .
+      dockerfile: back/Dockerfile
     networks:
       - dev
 
