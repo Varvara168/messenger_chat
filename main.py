@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from back.models import users, chats, messages, chat_members, status
+from db import Base, engine
+
 # Убедитесь, что импорты правильные
 from back.routers.auth import router as auth_router
 from back.routers.chats import router as chats_router
@@ -40,6 +43,10 @@ app.include_router(status_router)
 
 
 app.mount("/static", StaticFiles(directory="front"), name="static")
+
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def serve_login():
