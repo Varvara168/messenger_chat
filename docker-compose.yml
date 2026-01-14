@@ -18,7 +18,9 @@ services:
       - dev
 
   back:
-    build: ./back
+    build:
+      context: .
+      dockerfile: ./back
     networks:
       - dev
 
