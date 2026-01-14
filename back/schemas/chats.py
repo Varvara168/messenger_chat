@@ -12,5 +12,6 @@ class ChatOut(BaseModel):
     members: str
     last_message: Optional[str] = None
 
-    class Config:
-        orm_mode = True #Позволяет работать с ORM моделями напрямую
+    model_config = {
+        "from_attributes": True
+    }
