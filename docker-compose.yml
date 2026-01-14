@@ -19,12 +19,12 @@ services:
 
   back:
     build:
-      context: .
-      dockerfile: ./back
+      context: ./back
     networks:
       - dev
 
   front:
-    build: ./front
+    build:
+      context: ./front
     networks:
       - dev
