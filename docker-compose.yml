@@ -16,7 +16,7 @@ services:
       dockerfile: back/Dockerfile
     container_name: messenger_back
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/messenger_db
+      -DATABASE_URL=postgresql://postgres:postgres@db:5432/messenger
     ports:
       - "8000:8000"
     depends_on:
