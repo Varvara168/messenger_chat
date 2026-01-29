@@ -1011,114 +1011,72 @@
         console.log("Загрузка списка чатов...");
         
         return apiRequest('/chat/get_chats')
-            .then(chats => {
-                console.log("Получены чаты:", chats);
-                
-                chatsData = {};
-                
-                if (Array.isArray(chats) && chats.length > 0) {
-                    // СОРТИРУЙ ЧАТЫ ПОСЛЕ ЗАГРУЗКИ ВСЕХ ПОСЛЕДНИХ СООБЩЕНИЙ
-                    const loadPromises = chats.map(chat => {
-                        const chatId = chat.id;
-                        const chatName = chat.title || `Чат ${chatId}`;
-                        const avatarColor = getAvatarColor(chatName);
-                        
-                        // Сразу создаем объект чата
-                        chatsData[chatId] = {
-                            id: chatId,
-                            name: chatName,
-                            avatar: (chat.title || "Ч").charAt(0).toUpperCase(),
-                            messages: [],
-                            last_message: chat.last_message || "",
-                            last_time: 'загрузка...',
-                            last_message_raw: null,
-                            serverId: chatId,
-                            avatarColor: avatarColor
-                        };
-                        
-                        // ЕСЛИ УЖЕ ЕСТЬ last_message из ответа сервера - используй его
-                        if (chat.last_message && chat.last_message_timestamp) {
-                            chatsData[chatId].last_message = chat.last_message;
-                            chatsData[chatId].last_message_raw = chat.last_message_timestamp;
-                            chatsData[chatId].last_time = formatChatTime(chat.last_message_timestamp);
-                            return Promise.resolve(); // Уже есть данные
-                        }
-                        
-                        // Загружаем последние сообщения для этого чата
-                        return apiRequest(`/chat/${chatId}/messages?limit=1`)
-                            .then(response => {
-                                if (response && response.messages && response.messages.length > 0) {
-                                    const lastMsg = response.messages[response.messages.length - 1];
-                                    
-                                    // Обновляем информацию о последнем сообщении
-                                    chatsData[chatId].last_message = lastMsg.message || "";
-                                    chatsData[chatId].last_message_raw = lastMsg.timestamp;
-                                    chatsData[chatId].last_time = formatChatTime(lastMsg.timestamp);
-                                    
-                                    console.log(`Чат ${chatId}: последнее сообщение в ${lastMsg.timestamp}`);
-                                } else {
-                                    // Если нет сообщений
-                                    chatsData[chatId].last_time = 'нет сообщений';
-                                    chatsData[chatId].last_message_raw = null;
-                                    console.log(`Чат ${chatId}: нет сообщений`);
-                                }
-                            })
-                            .catch(error => {
-                                console.error(`Ошибка загрузки сообщений для чата ${chatId}:`, error);
-                                chatsData[chatId].last_time = 'ошибка';
-                                chatsData[chatId].last_message_raw = null;
-                            });
-                    });
-                    
-                    // Ждем загрузки всех последних сообщений
-                    return Promise.all(loadPromises)
-                        .then(() => {
-                            console.log("Все чаты загружены с последними сообщениями");
-                            
-                            // ТЕПЕРЬ СОРТИРУЕМ чаты по времени последнего сообщения
-                            const sortedChatIds = Object.keys(chatsData).sort((a, b) => {
-                                const timeA = chatsData[a].last_message_raw ? 
-                                    new Date(chatsData[a].last_message_raw).getTime() : 0;
-                                const timeB = chatsData[b].last_message_raw ? 
-                                    new Date(chatsData[b].last_message_raw).getTime() : 0;
-                                
-                                // Новые (большее время) вверху
-                                return timeB - timeA;
-                            });
-                            
-                            // Пересоздаем chatsData в правильном порядке
-                            const sortedChatsData = {};
-                            sortedChatIds.forEach(id => {
-                                sortedChatsData[id] = chatsData[id];
-                            });
-                            chatsData = sortedChatsData;
-                            
-                            renderChatList();
-                            
-                            // Открываем сохраненный чат
-                            const savedChatId = localStorage.getItem('LAST_OPENED_CHAT');
-                            let chatToOpen = null;
-                            
-                            if (savedChatId && chatsData[savedChatId]) {
-                                chatToOpen = savedChatId;
-                                console.log("Восстанавливаем сохраненный чат:", savedChatId);
-                            } else {
-                                // Если нет сохраненного, открываем первый чат
-                                chatToOpen = Object.keys(chatsData)[0];
-                            }
-                            
-                            if (chatToOpen) {
-                                setTimeout(() => loadChat(chatToOpen), 100);
-                            }
-                        });
-                } else {
-                    showNoChatsMessage();
-                }
-            })
-            .catch(error => {
-                console.error("Ошибка загрузки чатов:", error);
+        .then(chats => {
+            chatsData = {};
+            if (!Array.isArray(chats) || chats.length === 0) {
                 showNoChatsMessage();
+                return;
+            }
+
+            const loadPromises = chats.map(chat => {
+                const chatId = chat.id;
+                const chatName = chat.title || `Чат ${chatId}`;
+                const avatarColor = getAvatarColor(chatName);
+
+                chatsData[chatId] = {
+                    id: chatId,
+                    name: chatName,
+                    avatar: (chat.title || "Ч").charAt(0).toUpperCase(),
+                    messages: [],
+                    last_message: "",
+                    last_time: 'загрузка...',
+                    last_message_raw: null,
+                    serverId: chatId,
+                    avatarColor: avatarColor
+                };
+
+                // ВСЕГДА подгружаем последнее сообщение
+                return apiRequest(`/chat/${chatId}/messages?limit=1`)
+                    .then(res => {
+                        if (res?.messages?.length) {
+                            const lastMsg = res.messages[res.messages.length - 1];
+                            chatsData[chatId].last_message = lastMsg.message || '';
+                            chatsData[chatId].last_message_raw = lastMsg.timestamp;
+                            chatsData[chatId].last_time = formatChatTime(lastMsg.timestamp);
+                        } else {
+                            chatsData[chatId].last_time = 'нет сообщений';
+                            chatsData[chatId].last_message_raw = null;
+                        }
+                    })
+                    .catch(() => {
+                        chatsData[chatId].last_time = 'ошибка';
+                        chatsData[chatId].last_message_raw = null;
+                    });
             });
+
+            return Promise.all(loadPromises)
+                .then(() => {
+                    // Сортировка после того, как все последние сообщения получены
+                    const sortedChatIds = Object.keys(chatsData).sort((a, b) => {
+                        const timeA = chatsData[a].last_message_raw ? new Date(chatsData[a].last_message_raw).getTime() : 0;
+                        const timeB = chatsData[b].last_message_raw ? new Date(chatsData[b].last_message_raw).getTime() : 0;
+                        return timeB - timeA;
+                    });
+
+                    const sortedChatsData = {};
+                    sortedChatIds.forEach(id => sortedChatsData[id] = chatsData[id]);
+                    chatsData = sortedChatsData;
+
+                    renderChatList();
+
+                    const savedChatId = localStorage.getItem('LAST_OPENED_CHAT') || Object.keys(chatsData)[0];
+                    if (savedChatId) setTimeout(() => loadChat(savedChatId), 100);
+                });
+        })
+        .catch(err => {
+            console.error("Ошибка загрузки чатов:", err);
+            showNoChatsMessage();
+        });
     }
 
     // ======================= ЗАГРУЗКА ЧАТА =======================

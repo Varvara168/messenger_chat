@@ -7,6 +7,8 @@ services:
     volumes:
       - ./front:/usr/share/nginx/html
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    command: ["nginx", "-g", "daemon off;"]
+    restart: always
     depends_on:
       - back
 
